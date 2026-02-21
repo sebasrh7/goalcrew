@@ -13,7 +13,13 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.warn("⚠️ No authenticated user for fetchGroups");
+        set({ groups: [] });
+        return;
+      }
+
+      console.log("📥 Fetching groups for user:", user.id);
 
       const { data, error } = await supabase
         .from('group_members')
@@ -29,14 +35,28 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
         `)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Error fetching groups:", error.message);
+        throw error;
+      }
+
+      if (!data) {
+        console.log("📭 No groups found");
+        set({ groups: [] });
+        return;
+      }
 
       const groups = data
         .map((item: any) => item.group)
         .filter(Boolean)
         .map(computeGroupStats);
 
+      console.log("✅ Groups fetched:", groups.length);
       set({ groups });
+    } catch (error: any) {
+      console.error("❌ fetchGroups error:", error.message);
+      // Don't throw - just log and set empty groups
+      set({ groups: [] });
     } finally {
       set({ isLoading: false });
     }

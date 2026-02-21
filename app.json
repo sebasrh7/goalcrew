@@ -22,7 +22,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b0f1a"
       },
-      "package": "com.goalcrew.app"
+      "package": "com.goalcrew.app",
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -43,17 +44,25 @@
         {
           "photosPermission": "Permite a GoalCrew acceder a tus fotos para tu perfil."
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.803759521905-es63ftjlvu5ugi4sot4johes0bthdq4b"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
+      "supabaseUrl": "https://ezoibyfnnsvbqotnvpdj.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6b2lieWZubnN2YnFvdG52cGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDM2NjcsImV4cCI6MjA4NjkxOTY2N30.MoCwqLioeJhN1ZvJA0jBYgXAQOZTTqKmVMLRRuh5ezU",
+      "router": {},
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
-      },
-      "supabaseUrl": "YOUR_SUPABASE_URL",
-      "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY"
-    }
+        "projectId": "4f25daa4-b37f-43cc-8b6f-02b753df72b7"
+      }
+    },
+    "owner": "sebasrh7"
   }
 }

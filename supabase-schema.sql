@@ -167,7 +167,7 @@ alter table public.group_members enable row level security;
 alter table public.contributions enable row level security;
 alter table public.achievements  enable row level security;
 
--- Users: can see their own profile
+-- Users: can see their own profile ONLY
 create policy "Users can view own profile"
   on public.users for select
   using (auth.uid() = id);
@@ -175,6 +175,10 @@ create policy "Users can view own profile"
 create policy "Users can update own profile"
   on public.users for update
   using (auth.uid() = id);
+
+create policy "Users can insert own profile"
+  on public.users for insert
+  with check (auth.uid() = id);
 
 -- Groups: members can see groups they belong to
 create policy "Members can view their groups"
@@ -190,7 +194,7 @@ create policy "Authenticated users can create groups"
   on public.groups for insert
   with check (auth.uid() = created_by);
 
--- Group members: members can see other members of their groups
+-- Group members: members can see group members if they're in that group
 create policy "Members can view group members"
   on public.group_members for select
   using (

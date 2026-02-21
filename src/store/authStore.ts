@@ -1,11 +1,14 @@
-import { makeRedirectUri } from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import { AuthState, User } from "../types";
 
-// Required for Google OAuth redirect
-WebBrowser.maybeCompleteAuthSession();
+// Configure Google Sign-In
+GoogleSignin.configure({
+  webClientId:
+    "803759521905-es63ftjlvu5ugi4sot4johes0bthdq4b.apps.googleusercontent.com",
+  scopes: ["openid", "profile", "email"],
+});
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -16,122 +19,80 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signIn: async () => {
     set({ isLoading: true });
     try {
-      // Use Expo's makeRedirectUri for proper deep linking
-      const redirectUrl = makeRedirectUri({
-        scheme: "goalcrew",
-        path: "auth/callback",
-      });
+      console.log("🚀 Starting Google Sign In...");
 
-      console.log("Redirect URL:", redirectUrl);
+      // Check if Google Play Services are available
+      await GoogleSignin.hasPlayServices();
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // Sign in with Google
+      const userInfo = await GoogleSignin.signIn();
+
+      console.log("✅ Google Sign In successful");
+      console.log("👤 User:", userInfo.data?.user.email);
+
+      // Get ID token
+      const tokens = await GoogleSignin.getTokens();
+      const idToken = tokens.idToken;
+
+      if (!idToken) {
+        throw new Error("No ID token received from Google");
+      }
+
+      console.log("🔑 Got ID token from Google");
+
+      // Sign in to Supabase with the ID token
+      const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "google",
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true, // Changed to true - we handle the redirect
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
+        token: idToken,
       });
 
       if (error) throw error;
 
-      // Open browser for OAuth flow
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl,
-        );
+      console.log("✅ Signed in to Supabase");
+      
+      // Force refresh session to ensure JWT is properly set
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Session not found after sign in");
+      }
 
-        console.log("OAuth result:", result);
-
-        if (result.type === "success") {
-          // Try to extract session from URL
-          const url = result.url;
-
-          // Supabase can return tokens in hash (#) or query (?)
-          const hashParams = new URLSearchParams(url.split("#")[1] || "");
-          const queryParams = new URLSearchParams(url.split("?")[1] || "");
-
-          const accessToken =
-            hashParams.get("access_token") || queryParams.get("access_token");
-          const refreshToken =
-            hashParams.get("refresh_token") || queryParams.get("refresh_token");
-
-          console.log("Tokens found:", {
-            accessToken: !!accessToken,
-            refreshToken: !!refreshToken,
-          });
-
-          if (accessToken && refreshToken) {
-            // Set the session
-            const { data: sessionData, error: sessionError } =
-              await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-
-            if (sessionError) throw sessionError;
-
-            if (sessionData.user) {
-              const profile = await fetchProfile(sessionData.user.id);
-              set({
-                user: profile,
-                session: sessionData.session,
-                isAuthenticated: true,
-              });
-              return; // Success!
-            }
-          }
-
-          // If we didn't get tokens in the URL, check if session exists in Supabase
-          console.log("No tokens in URL, checking current session...");
-          const {
-            data: { session },
-            error: sessionError,
-          } = await supabase.auth.getSession();
-
-          if (sessionError) throw sessionError;
-
-          if (session?.user) {
-            console.log("Found existing session!");
-            const profile = await fetchProfile(session.user.id);
-            set({ user: profile, session, isAuthenticated: true });
-          } else {
-            throw new Error(
-              "No se pudo obtener la sesión después de autenticar",
-            );
-          }
-        } else if (result.type === "dismiss") {
-          // Browser was closed/dismissed - check if session was created anyway
-          console.log("Auth session dismissed, checking current session...");
-          const {
-            data: { session },
-            error: sessionError,
-          } = await supabase.auth.getSession();
-
-          if (sessionError) throw sessionError;
-
-          if (session?.user) {
-            console.log("Found existing session after dismiss!");
-            const profile = await fetchProfile(session.user.id);
-            set({ user: profile, session, isAuthenticated: true });
-          } else {
-            throw new Error("Autenticación cancelada");
-          }
-        } else if (result.type === "cancel") {
-          throw new Error("Autenticación cancelada");
-        } else {
-          throw new Error("Autenticación falló: " + result.type);
-        }
+      console.log("🔐 Session confirmed:", session.user.id);
+      console.log("⏳ Loading profile...");
+      
+      // Fetch profile with confirmed session
+      try {
+        const profile = await fetchProfile(session.user.id);
+        set({ 
+          user: profile, 
+          session, 
+          isAuthenticated: true,
+          isLoading: false 
+        });
+      } catch (profileError: any) {
+        console.warn("⚠️ Could not fetch profile on sign in:", profileError.message);
+        // Use fallback
+        const fallbackUser: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.full_name || 
+                session.user.user_metadata?.name || 
+                session.user.email!.split('@')[0],
+          avatar_url: session.user.user_metadata?.avatar_url || null,
+          created_at: session.user.created_at
+        };
+        set({ 
+          user: fallbackUser, 
+          session, 
+          isAuthenticated: true,
+          isLoading: false 
+        });
       }
     } catch (error: any) {
-      console.error("Google Sign In Error:", error);
-      throw error;
-    } finally {
+      console.error("❌ Sign In Error:", error.message);
       set({ isLoading: false });
+      throw error;
     }
   },
 
@@ -162,27 +123,85 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // ─── Initialize auth listener ─────────────────────────────────────────────────
 export function initAuthListener() {
+  console.log("🎯 Initializing auth listener...");
+  
   supabase.auth.getSession().then(async ({ data: { session } }) => {
+    console.log("📋 Initial session check:", session ? "Session exists" : "No session");
+    
     if (session?.user) {
-      const profile = await fetchProfile(session.user.id);
-      useAuthStore.setState({
-        user: profile,
-        session,
-        isAuthenticated: true,
-        isLoading: false,
-      });
+      console.log("👤 User found in session:", session.user.id);
+      try {
+        const profile = await fetchProfile(session.user.id);
+        useAuthStore.setState({
+          user: profile,
+          session,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } catch (error: any) {
+        console.error("⚠️ Could not load profile on init, using session data:", error.message);
+        // Fallback: use session data
+        const fallbackUser: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.full_name || 
+                session.user.user_metadata?.name || 
+                session.user.email!.split('@')[0],
+          avatar_url: session.user.user_metadata?.avatar_url || null,
+          created_at: session.user.created_at
+        };
+        useAuthStore.setState({
+          user: fallbackUser,
+          session,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
     } else {
+      console.log("❌ No user in session");
       useAuthStore.setState({ isLoading: false });
     }
   });
 
   supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log("Auth state changed:", event);
+    console.log("🔔 Auth state changed:", event);
 
     if (event === "SIGNED_IN" && session?.user) {
-      const profile = await fetchProfile(session.user.id);
-      useAuthStore.setState({ user: profile, session, isAuthenticated: true });
+      console.log("✅ User signed in:", session.user.id);
+      
+      // Add a delay to ensure session is fully propagated in Supabase client
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      try {
+        const profile = await fetchProfile(session.user.id);
+        console.log("✅ Profile loaded, updating state...");
+        useAuthStore.setState({ 
+          user: profile, 
+          session, 
+          isAuthenticated: true,
+          isLoading: false 
+        });
+      } catch (error: any) {
+        console.error("⚠️ Could not load profile:", error.message);
+        // Fallback: use session data to construct a minimal user object
+        const fallbackUser: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.full_name || 
+                session.user.user_metadata?.name || 
+                session.user.email!.split('@')[0],
+          avatar_url: session.user.user_metadata?.avatar_url || null,
+          created_at: session.user.created_at
+        };
+        useAuthStore.setState({ 
+          user: fallbackUser, 
+          session, 
+          isAuthenticated: true,
+          isLoading: false 
+        });
+      }
     } else if (event === "SIGNED_OUT") {
+      console.log("👋 User signed out");
       useAuthStore.setState({
         user: null,
         session: null,
@@ -193,11 +212,36 @@ export function initAuthListener() {
 }
 
 async function fetchProfile(userId: string): Promise<User> {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", userId)
-    .single();
-  if (error) throw error;
-  return data;
+  try {
+    console.log("📥 Fetching profile for:", userId);
+    
+    // Ensure we have a valid session before querying
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error("No active session - cannot fetch profile");
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching profile:", error);
+      throw error;
+    }
+
+    if (!data) {
+      console.error("No profile found for user:", userId);
+      throw new Error("User profile not found");
+    }
+
+    console.log("✅ Profile fetched successfully:", data);
+    return data;
+  } catch (error: any) {
+    console.error("❌ fetchProfile error:", error.message);
+    throw error;
+  }
 }
+
