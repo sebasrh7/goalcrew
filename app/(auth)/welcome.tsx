@@ -60,6 +60,10 @@ export default function WelcomeScreen() {
       try {
         console.log("Starting Google Sign In...");
         await signIn();
+        
+        // Give a moment for state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         console.log("Sign in successful, navigating to tabs...");
         router.replace("/(tabs)");
       } catch (error: any) {

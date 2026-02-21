@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=ezoibyfnnsvbqotnvpdj"
+    },
+    "google-cloud": {
+      "command": "npx",
+      "args": ["-y", "@google-cloud/mcp-server"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "C:\\Users\\Sebastian\\AppData\\Roaming\\gcloud\\legacy_credentials\\sebastianrengifohidalgo@gmail.com\\adc.json"
+      }
+    }
+  }
+}
