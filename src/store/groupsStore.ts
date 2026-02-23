@@ -1,8 +1,13 @@
-import { create } from 'zustand';
-import { differenceInDays, parseISO } from 'date-fns';
-import { supabase, fetchGroupWithMembers, createGroup as apiCreateGroup, joinGroupByCode } from '../lib/supabase';
-import { Group, GroupWithStats, GroupsState, CreateGroupInput } from '../types';
-import { getMemberStatus } from '../constants';
+import { differenceInDays, parseISO } from "date-fns";
+import { create } from "zustand";
+import { getMemberStatus } from "../constants";
+import {
+  createGroup as apiCreateGroup,
+  fetchGroupWithMembers,
+  joinGroupByCode,
+  supabase,
+} from "../lib/supabase";
+import { CreateGroupInput, Group, GroupWithStats, GroupsState } from "../types";
 
 export const useGroupsStore = create<GroupsState>((set, get) => ({
   groups: [],
@@ -12,7 +17,9 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
   fetchGroups: async () => {
     set({ isLoading: true });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         console.warn("⚠️ No authenticated user for fetchGroups");
         set({ groups: [] });
@@ -22,8 +29,9 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
       console.log("📥 Fetching groups for user:", user.id);
 
       const { data, error } = await supabase
-        .from('group_members')
-        .select(`
+        .from("group_members")
+        .select(
+          `
           group:groups(
             *,
             members:group_members(
@@ -32,8 +40,9 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
             ),
             contributions(*, user:users(*))
           )
-        `)
-        .eq('user_id', user.id);
+        `,
+        )
+        .eq("user_id", user.id);
 
       if (error) {
         console.error("❌ Error fetching groups:", error.message);
@@ -70,8 +79,8 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
       set({ currentGroup: group });
 
       // Also update in the list
-      set(state => ({
-        groups: state.groups.map(g => g.id === id ? group : g),
+      set((state) => ({
+        groups: state.groups.map((g) => (g.id === id ? group : g)),
       }));
     } finally {
       set({ isLoading: false });
@@ -79,8 +88,10 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
   },
 
   createGroup: async (input: CreateGroupInput): Promise<Group> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
 
     const group = await apiCreateGroup({
       name: input.name,
@@ -93,7 +104,7 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     });
 
     // Auto-join as creator
-    await supabase.from('group_members').insert({
+    await supabase.from("group_members").insert({
       group_id: group.id,
       user_id: user.id,
       individual_goal: input.goal_amount,
@@ -107,8 +118,10 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
   },
 
   joinGroup: async (inviteCode: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
     await joinGroupByCode(inviteCode, user.id);
     await get().fetchGroups();
   },
@@ -122,28 +135,44 @@ function computeGroupStats(raw: any): GroupWithStats {
   const deadline = parseISO(raw.deadline);
 
   const daysRemaining = Math.max(0, differenceInDays(deadline, now));
-  const totalDays = Math.max(1, differenceInDays(deadline, parseISO(raw.created_at ?? raw.deadline)));
+  const totalDays = Math.max(
+    1,
+    differenceInDays(deadline, parseISO(raw.created_at ?? raw.deadline)),
+  );
   const daysElapsed = totalDays - daysRemaining;
 
-  const total_saved = members.reduce((sum: number, m: any) => sum + (m.current_amount ?? 0), 0);
-  const total_goal = members.reduce((sum: number, m: any) => sum + (m.individual_goal ?? raw.goal_amount), 0);
-  const progress_percent = total_goal > 0 ? Math.round((total_saved / total_goal) * 100) : 0;
+  const total_saved = members.reduce(
+    (sum: number, m: any) => sum + (m.current_amount ?? 0),
+    0,
+  );
+  const total_goal = members.reduce(
+    (sum: number, m: any) => sum + (m.individual_goal ?? raw.goal_amount),
+    0,
+  );
+  const progress_percent =
+    total_goal > 0 ? Math.round((total_saved / total_goal) * 100) : 0;
 
   const periodsRemaining =
-    raw.frequency === 'daily'
+    raw.frequency === "daily"
       ? daysRemaining
-      : raw.frequency === 'weekly'
+      : raw.frequency === "weekly"
         ? Math.ceil(daysRemaining / 7)
         : Math.ceil(daysRemaining / 30);
 
-  const per_period_needed = periodsRemaining > 0
-    ? Number(((raw.goal_amount) / (periodsRemaining + 1)).toFixed(2))
-    : 0;
+  const per_period_needed =
+    periodsRemaining > 0
+      ? Number((raw.goal_amount / (periodsRemaining + 1)).toFixed(2))
+      : 0;
 
   // Add computed status to each member
   const membersWithStatus = members.map((m: any) => ({
     ...m,
-    status: getMemberStatus(m.current_amount, m.individual_goal ?? raw.goal_amount, daysElapsed, totalDays),
+    status: getMemberStatus(
+      m.current_amount,
+      m.individual_goal ?? raw.goal_amount,
+      daysElapsed,
+      totalDays,
+    ),
   }));
 
   return {

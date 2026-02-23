@@ -49,44 +49,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
 
       console.log("✅ Signed in to Supabase");
-      
+
       // Force refresh session to ensure JWT is properly set
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const { data: { session } } = await supabase.auth.getSession();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         throw new Error("Session not found after sign in");
       }
 
       console.log("🔐 Session confirmed:", session.user.id);
       console.log("⏳ Loading profile...");
-      
+
       // Fetch profile with confirmed session
       try {
         const profile = await fetchProfile(session.user.id);
-        set({ 
-          user: profile, 
-          session, 
+        set({
+          user: profile,
+          session,
           isAuthenticated: true,
-          isLoading: false 
+          isLoading: false,
         });
       } catch (profileError: any) {
-        console.warn("⚠️ Could not fetch profile on sign in:", profileError.message);
+        console.warn(
+          "⚠️ Could not fetch profile on sign in:",
+          profileError.message,
+        );
         // Use fallback
         const fallbackUser: User = {
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata?.full_name || 
-                session.user.user_metadata?.name || 
-                session.user.email!.split('@')[0],
+          name:
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email!.split("@")[0],
           avatar_url: session.user.user_metadata?.avatar_url || null,
-          created_at: session.user.created_at
+          created_at: session.user.created_at,
         };
-        set({ 
-          user: fallbackUser, 
-          session, 
+        set({
+          user: fallbackUser,
+          session,
           isAuthenticated: true,
-          isLoading: false 
+          isLoading: false,
         });
       }
     } catch (error: any) {
@@ -124,10 +130,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // ─── Initialize auth listener ─────────────────────────────────────────────────
 export function initAuthListener() {
   console.log("🎯 Initializing auth listener...");
-  
+
   supabase.auth.getSession().then(async ({ data: { session } }) => {
-    console.log("📋 Initial session check:", session ? "Session exists" : "No session");
-    
+    console.log(
+      "📋 Initial session check:",
+      session ? "Session exists" : "No session",
+    );
+
     if (session?.user) {
       console.log("👤 User found in session:", session.user.id);
       try {
@@ -139,16 +148,20 @@ export function initAuthListener() {
           isLoading: false,
         });
       } catch (error: any) {
-        console.error("⚠️ Could not load profile on init, using session data:", error.message);
+        console.error(
+          "⚠️ Could not load profile on init, using session data:",
+          error.message,
+        );
         // Fallback: use session data
         const fallbackUser: User = {
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata?.full_name || 
-                session.user.user_metadata?.name || 
-                session.user.email!.split('@')[0],
+          name:
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email!.split("@")[0],
           avatar_url: session.user.user_metadata?.avatar_url || null,
-          created_at: session.user.created_at
+          created_at: session.user.created_at,
         };
         useAuthStore.setState({
           user: fallbackUser,
@@ -168,18 +181,18 @@ export function initAuthListener() {
 
     if (event === "SIGNED_IN" && session?.user) {
       console.log("✅ User signed in:", session.user.id);
-      
+
       // Add a delay to ensure session is fully propagated in Supabase client
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       try {
         const profile = await fetchProfile(session.user.id);
         console.log("✅ Profile loaded, updating state...");
-        useAuthStore.setState({ 
-          user: profile, 
-          session, 
+        useAuthStore.setState({
+          user: profile,
+          session,
           isAuthenticated: true,
-          isLoading: false 
+          isLoading: false,
         });
       } catch (error: any) {
         console.error("⚠️ Could not load profile:", error.message);
@@ -187,17 +200,18 @@ export function initAuthListener() {
         const fallbackUser: User = {
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata?.full_name || 
-                session.user.user_metadata?.name || 
-                session.user.email!.split('@')[0],
+          name:
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email!.split("@")[0],
           avatar_url: session.user.user_metadata?.avatar_url || null,
-          created_at: session.user.created_at
+          created_at: session.user.created_at,
         };
-        useAuthStore.setState({ 
-          user: fallbackUser, 
-          session, 
+        useAuthStore.setState({
+          user: fallbackUser,
+          session,
           isAuthenticated: true,
-          isLoading: false 
+          isLoading: false,
         });
       }
     } else if (event === "SIGNED_OUT") {
@@ -214,9 +228,11 @@ export function initAuthListener() {
 async function fetchProfile(userId: string): Promise<User> {
   try {
     console.log("📥 Fetching profile for:", userId);
-    
+
     // Ensure we have a valid session before querying
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       throw new Error("No active session - cannot fetch profile");
     }
@@ -244,4 +260,3 @@ async function fetchProfile(userId: string): Promise<User> {
     throw error;
   }
 }
-
