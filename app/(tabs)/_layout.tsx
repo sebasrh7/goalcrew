@@ -1,19 +1,26 @@
-import { Tabs, Redirect } from 'expo-router';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAuthStore } from '../../src/store/authStore';
-import { Colors, Radius } from '../../src/constants';
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Redirect, Tabs } from "expo-router";
+import { StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Colors } from "../../src/constants";
+import { useAuthStore } from "../../src/store/authStore";
 
 export default function TabsLayout() {
   const { isAuthenticated } = useAuthStore();
+  const insets = useSafeAreaInsets();
+
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          ...styles.tabBar,
+          height: 60 + insets.bottom, // Altura dinámica basada en safe area
+          paddingBottom: insets.bottom || 8, // Padding dinámico
+        },
         tabBarActiveTintColor: Colors.accent2,
         tabBarInactiveTintColor: Colors.text3,
         tabBarLabelStyle: styles.tabLabel,
@@ -25,23 +32,29 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>🏠</Text>
+          title: "Inicio",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={24}
+              color={focused ? Colors.accent2 : Colors.text3}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="create"
         options={{
-          title: 'Crear',
+          title: "Crear",
           tabBarIcon: ({ focused }) => (
             <View style={[styles.createBtn, focused && styles.createBtnActive]}>
               <LinearGradient
-                colors={focused ? Colors.gradientPrimary : ['#232c42', '#1c2338']}
+                colors={
+                  focused ? Colors.gradientPrimary : ["#232c42", "#1c2338"]
+                }
                 style={styles.createBtnGradient}
               >
-                <Text style={{ fontSize: 22 }}>➕</Text>
+                <Ionicons name="add" size={28} color="#fff" />
               </LinearGradient>
             </View>
           ),
@@ -51,9 +64,13 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>👤</Text>
+          title: "Perfil",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={24}
+              color={focused ? Colors.accent2 : Colors.text3}
+            />
           ),
         }}
       />
@@ -63,11 +80,9 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderTopWidth: 1,
     borderTopColor: Colors.surface3,
-    height: 80,
-    paddingBottom: 20,
     paddingTop: 8,
     elevation: 0,
   },
@@ -76,14 +91,14 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   createBtn: {
     width: 52,
     height: 52,
     borderRadius: 26,
     marginBottom: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   createBtnActive: {
     shadowColor: Colors.accent,
@@ -94,7 +109,7 @@ const styles = StyleSheet.create({
   },
   createBtnGradient: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -1,25 +1,24 @@
-import React from 'react';
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
 import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
   TouchableOpacity,
   View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
   ViewStyle,
-  TextStyle,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { Colors, Radius, Spacing, FontSize } from '../constants';
-import { MemberStatus } from '../types';
+} from "react-native";
+import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { MemberStatus } from "../types";
 
 // ─── Button ──────────────────────────────────────────────────────────────────
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "sm" | "md" | "lg";
   isLoading?: boolean;
   disabled?: boolean;
   icon?: string;
@@ -27,8 +26,14 @@ interface ButtonProps {
 }
 
 export function Button({
-  title, onPress, variant = 'primary', size = 'md',
-  isLoading, disabled, icon, style,
+  title,
+  onPress,
+  variant = "primary",
+  size = "md",
+  isLoading,
+  disabled,
+  icon,
+  style,
 }: ButtonProps) {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -43,7 +48,7 @@ export function Button({
 
   const textSize = { sm: FontSize.sm, md: FontSize.md, lg: FontSize.lg }[size];
 
-  if (variant === 'primary') {
+  if (variant === "primary") {
     return (
       <TouchableOpacity
         onPress={handlePress}
@@ -61,8 +66,14 @@ export function Button({
             <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
-              {icon && <Text style={[styles.btnText, { fontSize: textSize }]}>{icon} </Text>}
-              <Text style={[styles.btnText, { fontSize: textSize }]}>{title}</Text>
+              {icon && (
+                <Text style={[styles.btnText, { fontSize: textSize }]}>
+                  {icon}{" "}
+                </Text>
+              )}
+              <Text style={[styles.btnText, { fontSize: textSize }]}>
+                {title}
+              </Text>
             </>
           )}
         </LinearGradient>
@@ -70,10 +81,21 @@ export function Button({
     );
   }
 
-  const variantStyles: Record<string, { bg: string; textColor: string; border?: string }> = {
-    secondary: { bg: Colors.surface2, textColor: Colors.text, border: Colors.surface3 },
-    ghost: { bg: 'transparent', textColor: Colors.accent2 },
-    danger: { bg: 'rgba(248,113,113,0.12)', textColor: Colors.red, border: 'rgba(248,113,113,0.3)' },
+  const variantStyles: Record<
+    string,
+    { bg: string; textColor: string; border?: string }
+  > = {
+    secondary: {
+      bg: Colors.surface2,
+      textColor: Colors.text,
+      border: Colors.surface3,
+    },
+    ghost: { bg: "transparent", textColor: Colors.accent2 },
+    danger: {
+      bg: "rgba(248,113,113,0.12)",
+      textColor: Colors.red,
+      border: "rgba(248,113,113,0.3)",
+    },
   };
 
   const vs = variantStyles[variant];
@@ -86,7 +108,12 @@ export function Button({
       style={[
         styles.btnBase,
         sizeStyle,
-        { backgroundColor: vs.bg, borderWidth: vs.border ? 1 : 0, borderColor: vs.border, opacity: disabled ? 0.5 : 1 },
+        {
+          backgroundColor: vs.bg,
+          borderWidth: vs.border ? 1 : 0,
+          borderColor: vs.border,
+          opacity: disabled ? 0.5 : 1,
+        },
         style,
       ]}
     >
@@ -94,8 +121,19 @@ export function Button({
         <ActivityIndicator color={vs.textColor} size="small" />
       ) : (
         <>
-          {icon && <Text style={[{ fontSize: textSize, color: vs.textColor }]}>{icon} </Text>}
-          <Text style={[styles.btnText, { fontSize: textSize, color: vs.textColor }]}>{title}</Text>
+          {icon && (
+            <Text style={[{ fontSize: textSize, color: vs.textColor }]}>
+              {icon}{" "}
+            </Text>
+          )}
+          <Text
+            style={[
+              styles.btnText,
+              { fontSize: textSize, color: vs.textColor },
+            ]}
+          >
+            {title}
+          </Text>
         </>
       )}
     </TouchableOpacity>
@@ -114,7 +152,7 @@ export function Card({ children, style, gradient }: CardProps) {
   if (gradient) {
     return (
       <LinearGradient
-        colors={['#1a1555', '#141929']}
+        colors={["#1a1555", "#141929"]}
         style={[styles.card, style]}
       >
         {children}
@@ -135,10 +173,10 @@ interface AvatarProps {
 
 export function Avatar({ name, size = 40, gradient, style }: AvatarProps) {
   const initials = name
-    .split(' ')
-    .map(n => n[0])
+    .split(" ")
+    .map((n) => n[0])
     .slice(0, 2)
-    .join('')
+    .join("")
     .toUpperCase();
 
   const fontSize = size * 0.35;
@@ -147,9 +185,19 @@ export function Avatar({ name, size = 40, gradient, style }: AvatarProps) {
   return (
     <LinearGradient
       colors={colors as any}
-      style={[{ width: size, height: size, borderRadius: size / 2, ...styles.avatarCenter }, style]}
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          ...styles.avatarCenter,
+        },
+        style,
+      ]}
     >
-      <Text style={{ color: '#fff', fontSize, fontWeight: '800' }}>{initials}</Text>
+      <Text style={{ color: "#fff", fontSize, fontWeight: "800" }}>
+        {initials}
+      </Text>
     </LinearGradient>
   );
 }
@@ -157,11 +205,11 @@ export function Avatar({ name, size = 40, gradient, style }: AvatarProps) {
 function getAvatarGradient(name: string): [string, string] {
   const gradients: [string, string][] = [
     [Colors.accent, Colors.accent2],
-    ['#22d3a0', '#059669'],
-    ['#f59e0b', '#d97706'],
-    ['#a78bfa', '#7c3aed'],
-    ['#f87171', '#dc2626'],
-    ['#60a5fa', '#2563eb'],
+    ["#22d3a0", "#059669"],
+    ["#f59e0b", "#d97706"],
+    ["#a78bfa", "#7c3aed"],
+    ["#f87171", "#dc2626"],
+    ["#60a5fa", "#2563eb"],
   ];
   const index = name.charCodeAt(0) % gradients.length;
   return gradients[index];
@@ -177,22 +225,44 @@ interface ProgressBarProps {
   animated?: boolean;
 }
 
-export function ProgressBar({ progress, height = 6, color, style }: ProgressBarProps) {
+export function ProgressBar({
+  progress,
+  height = 6,
+  color,
+  style,
+}: ProgressBarProps) {
   const clampedProgress = Math.min(100, Math.max(0, progress));
-  const fillColor = color ?? (
-    clampedProgress >= 90 ? Colors.green :
-    clampedProgress >= 60 ? Colors.accent :
-    clampedProgress >= 30 ? Colors.yellow :
-    Colors.red
-  );
+  const fillColor =
+    color ??
+    (clampedProgress >= 90
+      ? Colors.green
+      : clampedProgress >= 60
+        ? Colors.accent
+        : clampedProgress >= 30
+          ? Colors.yellow
+          : Colors.red);
 
   return (
-    <View style={[{ height, backgroundColor: Colors.surface3, borderRadius: height / 2, overflow: 'hidden' }, style]}>
+    <View
+      style={[
+        {
+          height,
+          backgroundColor: Colors.surface3,
+          borderRadius: height / 2,
+          overflow: "hidden",
+        },
+        style,
+      ]}
+    >
       <LinearGradient
-        colors={[fillColor, fillColor + 'CC']}
+        colors={[fillColor, fillColor + "CC"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ width: `${clampedProgress}%`, height: '100%', borderRadius: height / 2 }}
+        style={{
+          width: `${clampedProgress}%`,
+          height: "100%",
+          borderRadius: height / 2,
+        }}
       />
     </View>
   );
@@ -207,15 +277,32 @@ interface StatusPillProps {
 
 export function StatusPill({ status, style }: StatusPillProps) {
   const config = {
-    on_track: { emoji: '🟢', label: 'Al día', bg: 'rgba(34,211,160,.15)', color: Colors.green },
-    at_risk: { emoji: '🟡', label: 'En riesgo', bg: 'rgba(251,191,36,.15)', color: Colors.yellow },
-    behind: { emoji: '🔴', label: 'Atrasado', bg: 'rgba(248,113,113,.15)', color: Colors.red },
+    on_track: {
+      emoji: "🟢",
+      label: "Al día",
+      bg: "rgba(34,211,160,.15)",
+      color: Colors.green,
+    },
+    at_risk: {
+      emoji: "🟡",
+      label: "En riesgo",
+      bg: "rgba(251,191,36,.15)",
+      color: Colors.yellow,
+    },
+    behind: {
+      emoji: "🔴",
+      label: "Atrasado",
+      bg: "rgba(248,113,113,.15)",
+      color: Colors.red,
+    },
   }[status];
 
   return (
     <View style={[styles.pill, { backgroundColor: config.bg }, style]}>
       <Text style={{ fontSize: 10 }}>{config.emoji}</Text>
-      <Text style={[styles.pillText, { color: config.color }]}>{config.label}</Text>
+      <Text style={[styles.pillText, { color: config.color }]}>
+        {config.label}
+      </Text>
     </View>
   );
 }
@@ -229,7 +316,12 @@ interface SectionHeaderProps {
   style?: ViewStyle;
 }
 
-export function SectionHeader({ title, action, onAction, style }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  action,
+  onAction,
+  style,
+}: SectionHeaderProps) {
   return (
     <View style={[styles.sectionHeader, style]}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -251,7 +343,12 @@ interface EmptyStateProps {
   action?: { label: string; onPress: () => void };
 }
 
-export function EmptyState({ emoji, title, description, action }: EmptyStateProps) {
+export function EmptyState({
+  emoji,
+  title,
+  description,
+  action,
+}: EmptyStateProps) {
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyEmoji}>{emoji}</Text>
@@ -272,14 +369,14 @@ export function EmptyState({ emoji, title, description, action }: EmptyStateProp
 
 const styles = StyleSheet.create({
   btnBase: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   btnText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
   },
   card: {
     backgroundColor: Colors.surface,
@@ -289,12 +386,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.surface3,
   },
   avatarCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -302,27 +399,27 @@ const styles = StyleSheet.create({
   },
   pillText: {
     fontSize: FontSize.xs,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.md,
   },
   sectionTitle: {
     fontSize: FontSize.lg,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.text,
   },
   sectionAction: {
     fontSize: FontSize.base,
     color: Colors.accent2,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   emptyState: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: Spacing.xxxl,
     paddingHorizontal: Spacing.xxl,
   },
@@ -332,15 +429,18 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: FontSize.xl,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Colors.text,
     marginBottom: Spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyDesc: {
     fontSize: FontSize.base,
     color: Colors.text2,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
 });
+
+// ─── AchievementIcon Export ──────────────────────────────────────────────────
+export { AchievementIcon } from "./AchievementIcon";

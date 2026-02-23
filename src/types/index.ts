@@ -1,8 +1,8 @@
 // ─── Database Types (matches Supabase schema) ───────────────────────────────
 
-export type FrequencyType = 'daily' | 'weekly' | 'monthly';
-export type DivisionType = 'equal' | 'custom';
-export type MemberStatus = 'on_track' | 'at_risk' | 'behind';
+export type FrequencyType = "daily" | "weekly" | "monthly";
+export type DivisionType = "equal" | "custom";
+export type MemberStatus = "on_track" | "at_risk" | "behind";
 
 export interface User {
   id: string;
@@ -16,12 +16,12 @@ export interface Group {
   id: string;
   name: string;
   emoji: string;
-  deadline: string;           // ISO date string
-  goal_amount: number;        // total goal per person in USD
+  deadline: string; // ISO date string
+  goal_amount: number; // total goal per person in USD
   frequency: FrequencyType;
   division_type: DivisionType;
   invite_code: string;
-  created_by: string;         // user_id
+  created_by: string; // user_id
   created_at: string;
 }
 
@@ -60,15 +60,15 @@ export interface Achievement {
 }
 
 export type AchievementType =
-  | 'first_contribution'
-  | 'streak_3'
-  | 'streak_7'
-  | 'streak_30'
-  | 'first_50_percent'
-  | 'goal_completed'
-  | 'most_consistent'
-  | 'early_bird'
-  | 'big_saver';
+  | "first_contribution"
+  | "streak_3"
+  | "streak_7"
+  | "streak_30"
+  | "first_50_percent"
+  | "goal_completed"
+  | "most_consistent"
+  | "early_bird"
+  | "big_saver";
 
 // ─── UI / Computed Types ─────────────────────────────────────────────────────
 
@@ -91,7 +91,8 @@ export interface RankingEntry {
 
 export interface AchievementConfig {
   type: AchievementType;
-  emoji: string;
+  icon: string;
+  color: string;
   title: string;
   description: string;
 }
@@ -99,8 +100,8 @@ export interface AchievementConfig {
 // ─── Navigation Types ────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
-  '(auth)': undefined;
-  '(tabs)': undefined;
+  "(auth)": undefined;
+  "(tabs)": undefined;
 };
 
 export type AuthStackParamList = {
@@ -117,10 +118,10 @@ export type TabParamList = {
 };
 
 export type GroupStackParamList = {
-  '[id]': { id: string };
-  'ranking': { groupId: string };
-  'history': { groupId: string };
-  'invite': { groupId: string; inviteCode: string };
+  "[id]": { id: string };
+  ranking: { groupId: string };
+  history: { groupId: string };
+  invite: { groupId: string; inviteCode: string };
 };
 
 // ─── Store Types ─────────────────────────────────────────────────────────────
@@ -159,6 +160,10 @@ export interface CreateGroupInput {
 export interface ContributionsState {
   contributions: Contribution[];
   isLoading: boolean;
-  addContribution: (groupId: string, amount: number, note?: string) => Promise<void>;
+  addContribution: (
+    groupId: string,
+    amount: number,
+    note?: string,
+  ) => Promise<void>;
   fetchContributions: (groupId: string) => Promise<void>;
 }

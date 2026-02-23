@@ -1,17 +1,26 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { ACHIEVEMENTS } from '../constants';
-import { AchievementType } from '../types';
-import { Colors, Spacing, Radius } from '../constants';
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useRef } from "react";
+import {
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { ACHIEVEMENTS, Colors, Radius, Spacing } from "../constants";
+import { AchievementType } from "../types";
 
 interface AchievementModalProps {
   achievementType: AchievementType | null;
   onDismiss: () => void;
 }
 
-export function AchievementModal({ achievementType, onDismiss }: AchievementModalProps) {
+export function AchievementModal({
+  achievementType,
+  onDismiss,
+}: AchievementModalProps) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -43,8 +52,17 @@ export function AchievementModal({ achievementType, onDismiss }: AchievementModa
 
   const dismiss = () => {
     Animated.parallel([
-      Animated.spring(scaleAnim, { toValue: 0, tension: 100, friction: 10, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.spring(scaleAnim, {
+        toValue: 0,
+        tension: 100,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
     ]).start(() => {
       scaleAnim.setValue(0);
       opacityAnim.setValue(0);
@@ -58,14 +76,26 @@ export function AchievementModal({ achievementType, onDismiss }: AchievementModa
 
   return (
     <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-      <TouchableOpacity style={styles.backdrop} onPress={dismiss} activeOpacity={1} />
-      <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
-        <LinearGradient
-          colors={['#1a1555', '#232c42']}
-          style={styles.card}
-        >
-          <View style={styles.badge}>
-            <Text style={styles.badgeEmoji}>{achievement.emoji}</Text>
+      <TouchableOpacity
+        style={styles.backdrop}
+        onPress={dismiss}
+        activeOpacity={1}
+      />
+      <Animated.View
+        style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
+      >
+        <LinearGradient colors={["#1a1555", "#232c42"]} style={styles.card}>
+          <View
+            style={[
+              styles.badge,
+              { backgroundColor: `${achievement.color}20` },
+            ]}
+          >
+            <Ionicons
+              name={achievement.icon as any}
+              size={48}
+              color={achievement.color}
+            />
           </View>
 
           <Text style={styles.header}>¡Medalla desbloqueada!</Text>
@@ -81,7 +111,7 @@ export function AchievementModal({ achievementType, onDismiss }: AchievementModa
               end={{ x: 1, y: 0 }}
               style={styles.btnGradient}
             >
-              <Text style={styles.btnText}>¡Genial! 🙌</Text>
+              <Text style={styles.btnText}>¡Genial!</Text>
             </LinearGradient>
           </TouchableOpacity>
         </LinearGradient>
@@ -92,82 +122,79 @@ export function AchievementModal({ achievementType, onDismiss }: AchievementModa
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     inset: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 100,
   },
   backdrop: {
-    position: 'absolute',
+    position: "absolute",
     inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: "rgba(0,0,0,0.75)",
   },
   container: {
-    width: '80%',
+    width: "80%",
     maxWidth: 320,
   },
   card: {
     borderRadius: Radius.xxl,
     padding: Spacing.xxl,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(108,99,255,0.4)',
+    borderColor: "rgba(108,99,255,0.4)",
   },
   badge: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: 'rgba(108,99,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(108,99,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.lg,
     borderWidth: 2,
-    borderColor: 'rgba(108,99,255,0.4)',
-  },
-  badgeEmoji: {
-    fontSize: 44,
+    borderColor: "rgba(108,99,255,0.4)",
   },
   header: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.accent2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: Spacing.sm,
   },
   title: {
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Colors.text,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.sm,
   },
   description: {
     fontSize: 14,
     color: Colors.text2,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
     marginBottom: Spacing.xl,
   },
   glowLine: {
-    width: '60%',
+    width: "60%",
     height: 1,
-    backgroundColor: 'rgba(108,99,255,0.3)',
+    backgroundColor: "rgba(108,99,255,0.3)",
     marginBottom: Spacing.xl,
   },
   btn: {
-    width: '100%',
+    width: "100%",
     borderRadius: Radius.md,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   btnGradient: {
     paddingVertical: 13,
-    alignItems: 'center',
+    alignItems: "center",
   },
   btnText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });

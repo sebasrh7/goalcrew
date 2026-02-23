@@ -1,39 +1,60 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Modal, TextInput, Alert, Share,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
-import * as Clipboard from 'expo-clipboard';
-import { useGroupsStore } from '../../src/store/groupsStore';
-import { useContributionsStore } from '../../src/store/contributionsStore';
-import { useAuthStore } from '../../src/store/authStore';
-import { MemberRow } from '../../src/components/MemberRow';
-import { AchievementModal } from '../../src/components/AchievementModal';
-import { Button, Card, StatusPill } from '../../src/components/UI';
-import { Colors, Spacing, FontSize, Radius, ACHIEVEMENTS } from '../../src/constants';
-import { GroupMember, AchievementType } from '../../src/types';
-import { subscribeToGroup } from '../../src/lib/supabase';
-import { format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, {
+  Circle,
+  Defs,
+  Stop,
+  LinearGradient as SvgGradient,
+} from "react-native-svg";
+import { AchievementModal } from "../../src/components/AchievementModal";
+import { MemberRow } from "../../src/components/MemberRow";
+import { Button, Card, StatusPill } from "../../src/components/UI";
+import { Colors, FontSize, Radius, Spacing } from "../../src/constants";
+import { subscribeToGroup } from "../../src/lib/supabase";
+import { useAuthStore } from "../../src/store/authStore";
+import { useContributionsStore } from "../../src/store/contributionsStore";
+import { useGroupsStore } from "../../src/store/groupsStore";
+import { AchievementType } from "../../src/types";
 
-type TabType = 'members' | 'ranking' | 'history';
+type TabType = "members" | "ranking" | "history";
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuthStore();
   const { currentGroup, fetchGroup, isLoading } = useGroupsStore();
-  const { addContribution, contributions, fetchContributions, isLoading: contribLoading, lastUnlockedAchievement, clearLastAchievement } = useContributionsStore();
+  const {
+    addContribution,
+    contributions,
+    fetchContributions,
+    isLoading: contribLoading,
+    lastUnlockedAchievement,
+    clearLastAchievement,
+  } = useContributionsStore();
 
-  const [activeTab, setActiveTab] = useState<TabType>('members');
+  const [activeTab, setActiveTab] = useState<TabType>("members");
   const [showContribModal, setShowContribModal] = useState(false);
-  const [contribAmount, setContribAmount] = useState('');
-  const [contribNote, setContribNote] = useState('');
+  const [contribAmount, setContribAmount] = useState("");
+  const [contribNote, setContribNote] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -49,7 +70,9 @@ export default function GroupScreen() {
       fetchGroup(id);
       fetchContributions(id);
     });
-    return () => { channel.unsubscribe(); };
+    return () => {
+      channel.unsubscribe();
+    };
   }, [id]);
 
   const onRefresh = useCallback(() => {
@@ -62,17 +85,17 @@ export default function GroupScreen() {
   const handleAddContribution = async () => {
     const amount = parseFloat(contribAmount);
     if (!amount || amount <= 0) {
-      Alert.alert('Monto inválido', 'Ingresa un monto mayor a $0');
+      Alert.alert("Monto inválido", "Ingresa un monto mayor a $0");
       return;
     }
     try {
       await addContribution(id!, amount, contribNote || undefined);
       setShowContribModal(false);
-      setContribAmount('');
-      setContribNote('');
+      setContribAmount("");
+      setContribNote("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
-      Alert.alert('Error', error.message ?? 'No se pudo registrar el aporte');
+      Alert.alert("Error", error.message ?? "No se pudo registrar el aporte");
     }
   };
 
@@ -86,23 +109,25 @@ export default function GroupScreen() {
     } catch {
       // Copy to clipboard fallback
       await Clipboard.setStringAsync(currentGroup.invite_code);
-      Alert.alert('Código copiado', `Código: ${currentGroup.invite_code}`);
+      Alert.alert("Código copiado", `Código: ${currentGroup.invite_code}`);
     }
   };
 
   if (!currentGroup) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
           <Text style={{ color: Colors.text2 }}>Cargando grupo…</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const myMember = currentGroup.members?.find(m => m.user_id === user?.id);
+  const myMember = currentGroup.members?.find((m) => m.user_id === user?.id);
   const sortedByRanking = [...(currentGroup.members ?? [])].sort(
-    (a, b) => b.total_points - a.total_points
+    (a, b) => b.total_points - a.total_points,
   );
 
   // Ring progress
@@ -111,17 +136,30 @@ export default function GroupScreen() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - pct / 100);
 
-  const deadlineFormatted = format(parseISO(currentGroup.deadline), "d 'de' MMMM, yyyy", { locale: es });
+  const deadlineFormatted = format(
+    parseISO(currentGroup.deadline),
+    "d 'de' MMMM, yyyy",
+    { locale: es },
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={Colors.accent2} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={onRefresh}
+            tintColor={Colors.accent2}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
             <Text style={styles.backText}>← Mis metas</Text>
           </TouchableOpacity>
           <View style={styles.headerTop}>
@@ -130,37 +168,79 @@ export default function GroupScreen() {
               <Text style={styles.groupName}>{currentGroup.name}</Text>
               <View style={styles.headerPills}>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>👥 {currentGroup.members?.length ?? 0}</Text>
+                  <View style={styles.pillContent}>
+                    <Ionicons
+                      name="people-outline"
+                      size={14}
+                      color={Colors.accent2}
+                    />
+                    <Text style={[styles.pillText, { marginLeft: 4 }]}>
+                      {currentGroup.members?.length ?? 0}
+                    </Text>
+                  </View>
                 </View>
                 {myMember && <StatusPill status={myMember.status} />}
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>📅 {currentGroup.days_remaining}d</Text>
+                  <View style={styles.pillContent}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={14}
+                      color={Colors.accent2}
+                    />
+                    <Text style={[styles.pillText, { marginLeft: 4 }]}>
+                      {currentGroup.days_remaining}d
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
             <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-              <Text style={styles.shareBtnText}>🔗 Invitar</Text>
+              <View style={styles.shareBtnContent}>
+                <Ionicons name="link-outline" size={16} color="#FFFFFF" />
+                <Text style={[styles.shareBtnText, { marginLeft: 6 }]}>
+                  Invitar
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Progress ring + stats */}
-        <View style={{ paddingHorizontal: Spacing.xl, marginBottom: Spacing.lg }}>
+        <View
+          style={{ paddingHorizontal: Spacing.xl, marginBottom: Spacing.lg }}
+        >
           <Card>
             <View style={styles.progressRow}>
               {/* Ring */}
               <View style={styles.ringWrap}>
                 <Svg width={100} height={100} viewBox="0 0 100 100">
                   <Defs>
-                    <SvgGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <SvgGradient
+                      id="ring-grad"
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
+                    >
                       <Stop offset="0%" stopColor={Colors.accent} />
                       <Stop offset="100%" stopColor={Colors.accent2} />
                     </SvgGradient>
                   </Defs>
-                  <Circle cx="50" cy="50" r={radius} fill="none" stroke={Colors.surface3} strokeWidth="11" />
                   <Circle
-                    cx="50" cy="50" r={radius} fill="none"
-                    stroke="url(#ring-grad)" strokeWidth="11"
+                    cx="50"
+                    cy="50"
+                    r={radius}
+                    fill="none"
+                    stroke={Colors.surface3}
+                    strokeWidth="11"
+                  />
+                  <Circle
+                    cx="50"
+                    cy="50"
+                    r={radius}
+                    fill="none"
+                    stroke="url(#ring-grad)"
+                    strokeWidth="11"
                     strokeDasharray={`${circumference} ${circumference}`}
                     strokeDashoffset={strokeDashoffset}
                     strokeLinecap="round"
@@ -175,9 +255,20 @@ export default function GroupScreen() {
 
               {/* Stats */}
               <View style={styles.statsCol}>
-                <StatRow label="Total reunido" value={`$${currentGroup.total_saved.toFixed(0)}`} color={Colors.green} />
-                <StatRow label="Meta total" value={`$${currentGroup.total_goal.toFixed(0)}`} />
-                <StatRow label="Faltan" value={`$${(currentGroup.total_goal - currentGroup.total_saved).toFixed(0)}`} color={Colors.yellow} />
+                <StatRow
+                  label="Total reunido"
+                  value={`$${currentGroup.total_saved.toFixed(0)}`}
+                  color={Colors.green}
+                />
+                <StatRow
+                  label="Meta total"
+                  value={`$${currentGroup.total_goal.toFixed(0)}`}
+                />
+                <StatRow
+                  label="Faltan"
+                  value={`$${(currentGroup.total_goal - currentGroup.total_saved).toFixed(0)}`}
+                  color={Colors.yellow}
+                />
                 <StatRow label="Fecha límite" value={deadlineFormatted} small />
               </View>
             </View>
@@ -188,7 +279,8 @@ export default function GroupScreen() {
                 <View style={styles.myProgressHeader}>
                   <Text style={styles.myProgressLabel}>Tu progreso</Text>
                   <Text style={styles.myProgressValue}>
-                    ${myMember.current_amount.toFixed(0)} / ${myMember.individual_goal.toFixed(0)}
+                    ${myMember.current_amount.toFixed(0)} / $
+                    {myMember.individual_goal.toFixed(0)}
                   </Text>
                 </View>
                 <View style={styles.progressTrack}>
@@ -198,16 +290,29 @@ export default function GroupScreen() {
                     end={{ x: 1, y: 0 }}
                     style={[
                       styles.progressFill,
-                      { width: `${Math.min(100, (myMember.current_amount / myMember.individual_goal) * 100)}%` },
+                      {
+                        width: `${Math.min(100, (myMember.current_amount / myMember.individual_goal) * 100)}%`,
+                      },
                     ]}
                   />
                 </View>
                 <View style={styles.myProgressFooter}>
                   <Text style={styles.myProgressHint}>
-                    💰 Ahorra ${currentGroup.per_period_needed.toFixed(2)} cada {currentGroup.frequency === 'daily' ? 'día' : currentGroup.frequency === 'weekly' ? 'semana' : 'mes'}
+                    <Ionicons name="wallet" size={12} color={Colors.text2} />{" "}
+                    Ahorra ${currentGroup.per_period_needed.toFixed(2)} cada{" "}
+                    {currentGroup.frequency === "daily"
+                      ? "día"
+                      : currentGroup.frequency === "weekly"
+                        ? "semana"
+                        : "mes"}
                   </Text>
                   {myMember.streak_days > 0 && (
-                    <Text style={styles.streakBadge}>🔥 {myMember.streak_days}d</Text>
+                    <View style={styles.streakBadgeContainer}>
+                      <Ionicons name="flame" size={14} color="#FF6B35" />
+                      <Text style={styles.streakBadge}>
+                        {myMember.streak_days}d
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -218,16 +323,32 @@ export default function GroupScreen() {
         {/* Tabs */}
         <View style={{ paddingHorizontal: Spacing.xl }}>
           <View style={styles.tabBar}>
-            {(['members', 'ranking', 'history'] as TabType[]).map(tab => {
-              const labels = { members: '👥 Miembros', ranking: '🏆 Ranking', history: '📋 Historial' };
+            {(["members", "ranking", "history"] as TabType[]).map((tab) => {
+              const labels = {
+                members: { icon: "people", text: "Miembros" },
+                ranking: { icon: "trophy", text: "Ranking" },
+                history: { icon: "list", text: "Historial" },
+              };
+              const tabInfo = labels[tab];
               return (
                 <TouchableOpacity
                   key={tab}
                   onPress={() => setActiveTab(tab)}
                   style={[styles.tab, activeTab === tab && styles.tabActive]}
                 >
-                  <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                    {labels[tab]}
+                  <Ionicons
+                    name={tabInfo.icon as any}
+                    size={16}
+                    color={activeTab === tab ? Colors.accent2 : Colors.text3}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.tabText,
+                      activeTab === tab && styles.tabTextActive,
+                    ]}
+                  >
+                    {tabInfo.text}
                   </Text>
                 </TouchableOpacity>
               );
@@ -235,9 +356,9 @@ export default function GroupScreen() {
           </View>
 
           <Card style={{ paddingVertical: Spacing.sm }}>
-            {activeTab === 'members' && (
+            {activeTab === "members" && (
               <>
-                {currentGroup.members?.map(member => (
+                {currentGroup.members?.map((member) => (
                   <MemberRow
                     key={member.id}
                     member={member}
@@ -247,9 +368,11 @@ export default function GroupScreen() {
               </>
             )}
 
-            {activeTab === 'ranking' && (
+            {activeTab === "ranking" && (
               <>
-                <Text style={styles.rankingSubtitle}>Puntos acumulados esta semana</Text>
+                <Text style={styles.rankingSubtitle}>
+                  Puntos acumulados esta semana
+                </Text>
                 {sortedByRanking.map((member, idx) => (
                   <MemberRow
                     key={member.id}
@@ -262,22 +385,35 @@ export default function GroupScreen() {
               </>
             )}
 
-            {activeTab === 'history' && (
+            {activeTab === "history" && (
               <>
                 {contributions.length === 0 ? (
-                  <Text style={styles.emptyText}>Aún no hay aportes registrados</Text>
+                  <Text style={styles.emptyText}>
+                    Aún no hay aportes registrados
+                  </Text>
                 ) : (
-                  contributions.map(c => (
+                  contributions.map((c) => (
                     <View key={c.id} style={styles.historyItem}>
-                      <View style={[styles.historyDot, { backgroundColor: Colors.green }]} />
+                      <View
+                        style={[
+                          styles.historyDot,
+                          { backgroundColor: Colors.green },
+                        ]}
+                      />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.historyName}>
-                          <Text style={{ fontWeight: '800' }}>{c.user?.name ?? 'Alguien'}</Text>
+                          <Text style={{ fontWeight: "800" }}>
+                            {c.user?.name ?? "Alguien"}
+                          </Text>
                           {` ahorró $${c.amount}`}
                         </Text>
-                        {c.note && <Text style={styles.historyNote}>"{c.note}"</Text>}
+                        {c.note && (
+                          <Text style={styles.historyNote}>"{c.note}"</Text>
+                        )}
                         <Text style={styles.historyDate}>
-                          {format(new Date(c.created_at), "d MMM · HH:mm", { locale: es })}
+                          {format(new Date(c.created_at), "d MMM · HH:mm", {
+                            locale: es,
+                          })}
                         </Text>
                       </View>
                     </View>
@@ -291,9 +427,9 @@ export default function GroupScreen() {
         {/* Register contribution CTA */}
         <View style={styles.ctaSection}>
           <Button
-            title="💰 Registrar mi aporte"
+            title="Registrar mi aporte"
             onPress={() => setShowContribModal(true)}
-            style={{ overflow: 'hidden' }}
+            style={{ overflow: "hidden" }}
           />
         </View>
       </ScrollView>
@@ -318,9 +454,15 @@ export default function GroupScreen() {
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>💰 Registrar aporte</Text>
+            <View style={styles.modalTitleContent}>
+              <Ionicons name="wallet-outline" size={20} color={Colors.text} />
+              <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
+                Registrar aporte
+              </Text>
+            </View>
             <Text style={styles.modalSubtitle}>
-              {currentGroup.name} · Meta: ${myMember?.individual_goal.toFixed(0)}
+              {currentGroup.name} · Meta: $
+              {myMember?.individual_goal.toFixed(0)}
             </Text>
 
             <View style={styles.amountWrap}>
@@ -338,7 +480,7 @@ export default function GroupScreen() {
 
             {/* Quick amounts */}
             <View style={styles.quickAmounts}>
-              {[25, 50, 75, 100].map(v => (
+              {[25, 50, 75, 100].map((v) => (
                 <TouchableOpacity
                   key={v}
                   onPress={() => setContribAmount(String(v))}
@@ -358,7 +500,7 @@ export default function GroupScreen() {
             />
 
             <Button
-              title="✅ Confirmar aporte"
+              title="Confirmar aporte"
               onPress={handleAddContribution}
               isLoading={contribLoading}
             />
@@ -373,7 +515,15 @@ function StatRow({ label, value, color, small }: any) {
   return (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, color && { color }, small && { fontSize: FontSize.xs }]}>{value}</Text>
+      <Text
+        style={[
+          styles.statValue,
+          color && { color },
+          small && { fontSize: FontSize.xs },
+        ]}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -382,47 +532,155 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { padding: Spacing.xl, paddingBottom: Spacing.lg },
   backBtn: { marginBottom: Spacing.md },
-  backText: { color: Colors.accent2, fontWeight: '700', fontSize: FontSize.base },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  backText: {
+    color: Colors.accent2,
+    fontWeight: "700",
+    fontSize: FontSize.base,
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   groupEmoji: { fontSize: 36, marginBottom: 6 },
-  groupName: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.text, marginBottom: Spacing.sm },
-  headerPills: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-  pill: { backgroundColor: Colors.surface2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.surface3 },
-  pillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text2 },
-  shareBtn: { backgroundColor: Colors.surface2, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: Colors.surface3 },
-  shareBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, marginBottom: Spacing.lg },
-  ringWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  ringLabel: { position: 'absolute', alignItems: 'center' },
-  ringPct: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
+  groupName: {
+    fontSize: FontSize.xxl,
+    fontWeight: "900",
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  headerPills: { flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" },
+  pill: {
+    backgroundColor: Colors.surface2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+  },
+  pillText: { fontSize: FontSize.xs, fontWeight: "700", color: Colors.text2 },
+  shareBtn: {
+    backgroundColor: Colors.surface2,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+  },
+  shareBtnText: {
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  ringWrap: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringLabel: { position: "absolute", alignItems: "center" },
+  ringPct: { fontSize: FontSize.xl, fontWeight: "900", color: Colors.text },
   ringSubtitle: { fontSize: FontSize.xs, color: Colors.text2 },
   statsCol: { flex: 1, gap: Spacing.sm },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   statLabel: { fontSize: FontSize.xs, color: Colors.text2 },
-  statValue: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
-  myProgress: { borderTopWidth: 1, borderTopColor: Colors.surface3, paddingTop: Spacing.md, gap: Spacing.sm },
-  myProgressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  myProgressLabel: { fontSize: FontSize.sm, color: Colors.text2, fontWeight: '600' },
-  myProgressValue: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
-  progressTrack: { height: 8, backgroundColor: Colors.surface3, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4 },
-  myProgressFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statValue: { fontSize: FontSize.sm, fontWeight: "800", color: Colors.text },
+  myProgress: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.surface3,
+    paddingTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  myProgressHeader: { flexDirection: "row", justifyContent: "space-between" },
+  myProgressLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.text2,
+    fontWeight: "600",
+  },
+  myProgressValue: {
+    fontSize: FontSize.sm,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: Colors.surface3,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressFill: { height: "100%", borderRadius: 4 },
+  myProgressFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   myProgressHint: { fontSize: FontSize.xs, color: Colors.text2 },
-  streakBadge: { fontSize: FontSize.sm, color: Colors.yellow, fontWeight: '800' },
-  tabBar: { flexDirection: 'row', backgroundColor: Colors.surface2, borderRadius: Radius.md, padding: 4, marginBottom: Spacing.md },
-  tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: Radius.sm },
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: Colors.surface2,
+    borderRadius: Radius.md,
+    padding: 4,
+    marginBottom: Spacing.md,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: "center",
+    borderRadius: Radius.sm,
+  },
   tabActive: { backgroundColor: Colors.surface },
-  tabText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text2 },
+  tabText: { fontSize: FontSize.xs, fontWeight: "700", color: Colors.text2 },
   tabTextActive: { color: Colors.text },
-  rankingSubtitle: { fontSize: FontSize.xs, color: Colors.text2, marginBottom: Spacing.sm, paddingHorizontal: 4 },
-  historyItem: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.surface3 },
-  historyDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6, flexShrink: 0 },
+  rankingSubtitle: {
+    fontSize: FontSize.xs,
+    color: Colors.text2,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: 4,
+  },
+  historyItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.surface3,
+  },
+  historyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+    flexShrink: 0,
+  },
   historyName: { fontSize: FontSize.base, color: Colors.text },
-  historyNote: { fontSize: FontSize.xs, color: Colors.text2, fontStyle: 'italic', marginTop: 2 },
+  historyNote: {
+    fontSize: FontSize.xs,
+    color: Colors.text2,
+    fontStyle: "italic",
+    marginTop: 2,
+  },
   historyDate: { fontSize: FontSize.xs, color: Colors.text3, marginTop: 2 },
-  emptyText: { textAlign: 'center', color: Colors.text2, fontSize: FontSize.base, paddingVertical: Spacing.xl },
+  emptyText: {
+    textAlign: "center",
+    color: Colors.text2,
+    fontSize: FontSize.base,
+    paddingVertical: Spacing.xl,
+  },
   ctaSection: { padding: Spacing.xl },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  modalBg: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "flex-end",
+  },
   modalSheet: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xxl,
@@ -431,25 +689,79 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     gap: Spacing.md,
   },
-  modalHandle: { width: 40, height: 4, backgroundColor: Colors.surface3, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.sm },
-  modalTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.surface3,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  modalTitle: { fontSize: FontSize.xl, fontWeight: "900", color: Colors.text },
   modalSubtitle: { fontSize: FontSize.sm, color: Colors.text2 },
   amountWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.surface2,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.surface3,
     paddingHorizontal: Spacing.lg,
   },
-  currencySymbol: { fontSize: 28, fontWeight: '900', color: Colors.text2 },
-  amountInput: { flex: 1, paddingVertical: 14, fontSize: 36, fontWeight: '900', color: Colors.text, textAlign: 'center' },
-  quickAmounts: { flexDirection: 'row', gap: Spacing.sm },
-  quickBtn: { flex: 1, backgroundColor: Colors.surface2, borderRadius: Radius.md, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.surface3 },
-  quickBtnText: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text },
+  currencySymbol: { fontSize: 28, fontWeight: "900", color: Colors.text2 },
+  amountInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 36,
+    fontWeight: "900",
+    color: Colors.text,
+    textAlign: "center",
+  },
+  quickAmounts: { flexDirection: "row", gap: Spacing.sm },
+  quickBtn: {
+    flex: 1,
+    backgroundColor: Colors.surface2,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+  },
+  quickBtnText: {
+    fontSize: FontSize.base,
+    fontWeight: "800",
+    color: Colors.text,
+  },
   noteInput: {
-    backgroundColor: Colors.surface2, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.surface3,
-    paddingHorizontal: Spacing.md, paddingVertical: 12, fontSize: FontSize.base, color: Colors.text,
+    backgroundColor: Colors.surface2,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    fontSize: FontSize.base,
+    color: Colors.text,
+  },
+  streakBadgeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  streakBadge: {
+    fontSize: FontSize.xs,
+    color: "#FF6B35",
+    fontWeight: "700",
+  },
+  pillContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  shareBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  modalTitleContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 });
