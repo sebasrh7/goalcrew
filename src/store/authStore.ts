@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     await supabase.auth.signOut();
     set({ user: null, session: null, isAuthenticated: false });
-  };,
+  },
 
   updateProfile: async (data: Partial<User>) => {
     const { user } = get();

@@ -185,10 +185,12 @@ export async function scheduleContributionReminder(
 
 // ─── Achievement notification (instant, 2s delay) ────────────────────────────
 export async function notifyAchievement(
-  achievementName: string,
+  achievementType: string,
   lang?: Language,
 ): Promise<void> {
   const l = lang || getCurrentLanguage();
+  const titleKey = `achievement_${achievementType}_title` as any;
+  const achievementName = t(titleKey, l) || achievementType;
   await scheduleNotification(
     `🏆 ${t("newAchievementUnlocked", l)}`,
     `${t("youEarned", l)} ${achievementName}`,

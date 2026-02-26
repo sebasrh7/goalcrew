@@ -89,3 +89,18 @@ export const updateExchangeRates = async (): Promise<void> => {
     // Silent fail — rates stay at defaults
   }
 };
+
+// Quick amounts adapted to currency scale
+export function getQuickAmounts(currencyCode: string): number[] {
+  const rate = CURRENCIES[currencyCode]?.rate ?? 1;
+  if (rate >= 500) {
+    // High-value currencies: COP, ARS, CLP
+    return [5000, 10000, 20000, 50000];
+  }
+  if (rate >= 10) {
+    // Medium: MXN
+    return [50, 100, 200, 500];
+  }
+  // Low rate: USD, EUR, GBP, PEN, BRL
+  return [5, 10, 25, 50];
+}

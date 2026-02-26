@@ -131,10 +131,11 @@ async function checkAndUnlockAchievements(
 
   if (existingContribs?.length === 1) toUnlock.push("first_contribution");
 
-  // Streak achievements
-  if (streakDays + 1 >= 7) toUnlock.push("streak_7");
-  else if (streakDays + 1 >= 3) toUnlock.push("streak_3");
-  if (streakDays + 1 >= 30) toUnlock.push("streak_30");
+  // Streak achievements — independent checks (no else-if)
+  const effectiveStreak = streakDays + 1;
+  if (effectiveStreak >= 3) toUnlock.push("streak_3");
+  if (effectiveStreak >= 7) toUnlock.push("streak_7");
+  if (effectiveStreak >= 30) toUnlock.push("streak_30");
 
   // Big saver
   if (amount >= 100) toUnlock.push("big_saver");
@@ -160,12 +161,51 @@ async function checkAndUnlockAchievements(
   }
 
   // Goal completed
-  if (individualGoal > 0 && newAmount >= individualGoal)
+  if (individualGoal > 0 && newAmount >= individualGoal) {
     toUnlock.push("goal_completed");
+
+    // Early bird: completed before the deadline
+    const group = useGroupsStore
+      .getState()
+      .groups.find((g) => g.id === groupId);
+    if (group && new Date(group.deadline) > new Date()) {
+      toUnlock.push("early_bird");
+    }
+  }
+
+  // Most consistent: streak >= 7 AND highest streak in the group
+  if (effectiveStreak >= 7) {
+    const { data: groupMembers } = await supabase
+      .from("group_members")
+      .select("streak_days")
+      .eq("group_id", groupId)
+      .neq("user_id", userId);
+
+    const highestOtherStreak =
+      groupMembers?.reduce((max, m) => Math.max(max, m.streak_days ?? 0), 0) ??
+      0;
+    if (effectiveStreak > highestOtherStreak) {
+      toUnlock.push("most_consistent");
+    }
+  }
+
+  // Fetch already-unlocked achievements to avoid re-triggering modal
+  const { data: existingAchievements } = await supabase
+    .from("achievements")
+    .select("achievement_type")
+    .eq("user_id", userId)
+    .eq("group_id", groupId);
+
+  const alreadyUnlocked = new Set(
+    existingAchievements?.map((a) => a.achievement_type) ?? [],
+  );
+
+  // Filter out achievements already earned
+  const newAchievements = toUnlock.filter((t) => !alreadyUnlocked.has(t));
 
   // Unlock achievements and notify
   const { settings } = useSettingsStore.getState();
-  for (const achievementType of toUnlock) {
+  for (const achievementType of newAchievements) {
     try {
       await unlockAchievement(userId, groupId, achievementType);
       set({ lastUnlockedAchievement: achievementType });
@@ -173,7 +213,6 @@ async function checkAndUnlockAchievements(
       // Fire local notification if enabled
       if (settings.achievement_notifications) {
         if (achievementType === "goal_completed") {
-          // Find the group name for a richer notification
           const group = useGroupsStore
             .getState()
             .groups.find((g) => g.id === groupId);

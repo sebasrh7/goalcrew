@@ -37,7 +37,11 @@ import {
   Spacing,
   TRIP_ICONS,
 } from "../../src/constants";
-import { CURRENCIES, formatCurrency } from "../../src/lib/currency";
+import {
+  CURRENCIES,
+  formatCurrency,
+  getQuickAmounts,
+} from "../../src/lib/currency";
 import { getFrequencyPeriodLabel, t } from "../../src/lib/i18n";
 import { subscribeToGroup } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
@@ -311,6 +315,37 @@ export default function GroupScreen() {
 
   const isCustomDivision = currentGroup?.division_type === "custom";
 
+  // All hooks MUST be before any early return (Rules of Hooks)
+  const myMember = useMemo(
+    () => currentGroup?.members?.find((m) => m.user_id === user?.id),
+    [currentGroup?.members, user?.id],
+  );
+  const sortedByRanking = useMemo(
+    () =>
+      [...(currentGroup?.members ?? [])].sort(
+        (a, b) =>
+          b.total_points - a.total_points ||
+          b.streak_days - a.streak_days ||
+          (a.user?.name ?? "").localeCompare(b.user?.name ?? ""),
+      ),
+    [currentGroup?.members],
+  );
+  const dateLocale = useMemo(
+    () => (lang === "en" ? enUS : lang === "fr" ? fr : es),
+    [lang],
+  );
+  const deadlineFormatted = useMemo(
+    () =>
+      currentGroup?.deadline
+        ? format(
+            parseISO(currentGroup.deadline),
+            lang === "es" ? "d 'de' MMMM, yyyy" : "d MMMM, yyyy",
+            { locale: dateLocale },
+          )
+        : "",
+    [currentGroup?.deadline, lang, dateLocale],
+  );
+
   if (!currentGroup) {
     return (
       <SafeAreaView style={styles.container}>
@@ -323,18 +358,6 @@ export default function GroupScreen() {
     );
   }
 
-  const myMember = useMemo(
-    () => currentGroup.members?.find((m) => m.user_id === user?.id),
-    [currentGroup.members, user?.id],
-  );
-  const sortedByRanking = useMemo(
-    () =>
-      [...(currentGroup.members ?? [])].sort(
-        (a, b) => b.total_points - a.total_points,
-      ),
-    [currentGroup.members],
-  );
-
   // Completed state
   const isGoalCompleted = currentGroup.progress_percent >= 100;
   const isDeadlinePassed = new Date(currentGroup.deadline) < new Date();
@@ -346,21 +369,7 @@ export default function GroupScreen() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - pct / 100);
 
-  const dateLocale = useMemo(
-    () => (lang === "en" ? enUS : lang === "fr" ? fr : es),
-    [lang],
-  );
   const currencySymbol = CURRENCIES[settings.currency]?.symbol || "$";
-
-  const deadlineFormatted = useMemo(
-    () =>
-      format(
-        parseISO(currentGroup.deadline),
-        lang === "es" ? "d 'de' MMMM, yyyy" : "d MMMM, yyyy",
-        { locale: dateLocale },
-      ),
-    [currentGroup.deadline, lang, dateLocale],
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -863,7 +872,7 @@ export default function GroupScreen() {
 
               {/* Quick amounts */}
               <View style={styles.quickAmounts}>
-                {[25, 50, 75, 100].map((v) => (
+                {getQuickAmounts(settings.currency).map((v) => (
                   <TouchableOpacity
                     key={v}
                     onPress={() => setContribAmount(String(v))}
@@ -871,7 +880,7 @@ export default function GroupScreen() {
                   >
                     <Text style={styles.quickBtnText}>
                       {currencySymbol}
-                      {v}
+                      {v >= 1000 ? `${v / 1000}K` : v}
                     </Text>
                   </TouchableOpacity>
                 ))}

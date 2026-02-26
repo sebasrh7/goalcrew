@@ -115,7 +115,9 @@ export function MemberRow({
           / {formatCurrency(member.individual_goal, settings.currency)}
         </Text>
         {showRank && (
-          <Text style={styles.points}>{member.total_points} pts</Text>
+          <Text style={styles.points}>
+            {member.total_points} {t("pts", lang)}
+          </Text>
         )}
       </View>
     </TouchableOpacity>

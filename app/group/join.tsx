@@ -70,9 +70,15 @@ export default function JoinGroupScreen() {
         { text: t("letsGo", lang), onPress: () => router.replace("/(tabs)") },
       ]);
     } catch (error: any) {
-      Alert.alert(t("error", lang), error.message ?? t("couldNotJoin", lang));
+      const msg =
+        error.message === "INVALID_INVITE_CODE"
+          ? t("invalidInviteCode", lang)
+          : error.message === "ALREADY_MEMBER"
+            ? t("alreadyMember", lang)
+            : (error.message ?? t("couldNotJoin", lang));
+      Alert.alert(t("error", lang), msg);
     }
-  };;
+  };
 
   const formatCode = (text: string) => {
     const clean = text

@@ -3,7 +3,7 @@ import { decode } from "base64-arraybuffer";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,10 +23,11 @@ import {
   Radius,
   Spacing,
   TRIP_ICONS,
+  getUserLevel,
 } from "../../src/constants";
 import { formatCurrency } from "../../src/lib/currency";
 import { getAchievementText, t } from "../../src/lib/i18n";
-import { supabase } from "../../src/lib/supabase";
+import { fetchAllUserAchievements, supabase } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
@@ -76,25 +77,42 @@ export default function ProfileScreen() {
     [groups, user?.id],
   );
 
-  // Collect all earned achievements (unique)
-  const earnedAchievements = useMemo(() => {
-    const set = new Set<AchievementType>();
-    if (maxStreak >= 3) set.add("streak_3");
-    if (maxStreak >= 7) set.add("streak_7");
-    if (totalSaved > 0) set.add("first_contribution");
-    return set;
-  }, [maxStreak, totalSaved]);
+  // Level system — computed from total points
+  const levelInfo = useMemo(() => getUserLevel(totalPoints), [totalPoints]);
 
-  // Build streak week dots (simulate)
-  const streakDots = useMemo(
-    () =>
-      DAYS_SHORT.map((day, idx) => ({
-        day,
-        done: idx < maxStreak,
-        isToday: idx === new Date().getDay() - 1,
-      })),
-    [DAYS_SHORT, maxStreak],
-  );
+  // Fetch real achievements from DB
+  const [earnedAchievements, setEarnedAchievements] = useState<
+    Set<AchievementType>
+  >(new Set());
+
+  const loadAchievements = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const data = await fetchAllUserAchievements(user.id);
+      const types = new Set<AchievementType>(
+        data?.map((a) => a.achievement_type as AchievementType) ?? [],
+      );
+      setEarnedAchievements(types);
+    } catch {
+      // Fallback: keep empty
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadAchievements();
+  }, [loadAchievements]);
+
+  // Build streak week dots based on actual current day
+  const streakDots = useMemo(() => {
+    const today = new Date().getDay(); // 0=Sun, 1=Mon...6=Sat
+    // Convert to Mon=0...Sun=6
+    const todayIdx = today === 0 ? 6 : today - 1;
+    return DAYS_SHORT.map((day, idx) => ({
+      day,
+      done: idx <= todayIdx && idx > todayIdx - maxStreak,
+      isToday: idx === todayIdx,
+    }));
+  }, [DAYS_SHORT, maxStreak]);
 
   const handleSettings = () => {
     router.push("/settings");
@@ -252,7 +270,7 @@ export default function ProfileScreen() {
                     style={{ marginRight: 4 }}
                   />
                   <Text style={styles.levelBadgeText}>
-                    {t("level", lang)} 3
+                    {t("level", lang)} {levelInfo.level}
                   </Text>
                 </View>
               </View>

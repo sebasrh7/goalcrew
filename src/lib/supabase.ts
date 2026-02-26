@@ -112,9 +112,9 @@ export async function joinGroupByCode(
   if (error) {
     // Map server exceptions to friendly messages
     if (error.message?.includes("Invalid invite code"))
-      throw new Error("Código de invitación inválido");
+      throw new Error("INVALID_INVITE_CODE");
     if (error.message?.includes("Already a member"))
-      throw new Error("Ya eres miembro de este grupo");
+      throw new Error("ALREADY_MEMBER");
     throw error;
   }
   return data;
@@ -185,6 +185,16 @@ export async function fetchUserAchievements(userId: string, groupId: string) {
     .select("*")
     .eq("user_id", userId)
     .eq("group_id", groupId);
+  if (error) throw error;
+  return data;
+}
+
+// Fetch all achievements across all groups for a user
+export async function fetchAllUserAchievements(userId: string) {
+  const { data, error } = await supabase
+    .from("achievements")
+    .select("achievement_type")
+    .eq("user_id", userId);
   if (error) throw error;
   return data;
 }

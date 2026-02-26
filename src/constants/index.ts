@@ -136,10 +136,40 @@ export const POINTS = {
   ACHIEVEMENT_BONUS: 50, // pts for unlocking an achievement
 } as const;
 
-export function calculatePoints(amount: number, streakDays: number): number {
-  const base = Math.round(amount * POINTS.PER_DOLLAR);
-  const streakBonus = streakDays > 0 ? POINTS.STREAK_BONUS : 0;
-  return base + streakBonus;
+// ─── Level System ────────────────────────────────────────────────────────────
+// Each level requires more points than the last
+export const LEVEL_THRESHOLDS = [
+  0, // Level 1: 0 pts
+  50, // Level 2: 50 pts
+  150, // Level 3: 150 pts
+  350, // Level 4: 350 pts
+  600, // Level 5: 600 pts
+  1000, // Level 6: 1000 pts
+  1500, // Level 7: 1500 pts
+  2500, // Level 8: 2500 pts
+  4000, // Level 9: 4000 pts
+  6000, // Level 10: 6000 pts
+] as const;
+
+export function getUserLevel(totalPoints: number): {
+  level: number;
+  currentXP: number;
+  nextLevelXP: number;
+  progress: number;
+} {
+  let level = 1;
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalPoints >= LEVEL_THRESHOLDS[i]) {
+      level = i + 1;
+      break;
+    }
+  }
+  const currentThreshold = LEVEL_THRESHOLDS[level - 1] ?? 0;
+  const nextThreshold = LEVEL_THRESHOLDS[level] ?? currentThreshold + 2000;
+  const currentXP = totalPoints - currentThreshold;
+  const nextLevelXP = nextThreshold - currentThreshold;
+  const progress = nextLevelXP > 0 ? Math.min(1, currentXP / nextLevelXP) : 1;
+  return { level, currentXP, nextLevelXP, progress };
 }
 
 // ─── Status Logic ─────────────────────────────────────────────────────────────
@@ -156,13 +186,6 @@ export function getMemberStatus(
   if (ratio >= 0.6) return "at_risk";
   return "behind";
 }
-
-// ─── Frequency Labels ────────────────────────────────────────────────────────
-export const FREQUENCY_LABELS = {
-  daily: "Diario",
-  weekly: "Semanal",
-  monthly: "Mensual",
-} as const;
 
 // ─── Trip Icons ─────────────────────────────────────────────────────────────
 export const TRIP_ICONS = [

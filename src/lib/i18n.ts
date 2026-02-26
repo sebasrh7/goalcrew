@@ -1197,9 +1197,29 @@ export const translations: Translations = {
     fr: "La date limite doit être dans au moins 7 jours",
   },
   pointsAccumulated: {
-    es: "Puntos acumulados esta semana",
-    en: "Points accumulated this week",
-    fr: "Points accumulés cette semaine",
+    es: "Puntos acumulados",
+    en: "Accumulated points",
+    fr: "Points accumulés",
+  },
+  pts: {
+    es: "pts",
+    en: "pts",
+    fr: "pts",
+  },
+  invalidInviteCode: {
+    es: "Código de invitación inválido",
+    en: "Invalid invite code",
+    fr: "Code d'invitation invalide",
+  },
+  alreadyMember: {
+    es: "Ya eres miembro de este grupo",
+    en: "You are already a member of this group",
+    fr: "Vous êtes déjà membre de ce groupe",
+  },
+  xpProgress: {
+    es: "XP",
+    en: "XP",
+    fr: "XP",
   },
   whereAreYouGoing: {
     es: "¿A dónde van?",
