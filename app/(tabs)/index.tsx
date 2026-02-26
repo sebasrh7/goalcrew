@@ -1,21 +1,31 @@
-import React, { useEffect, useCallback } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
-  View, Text, StyleSheet, ScrollView,
-  RefreshControl, TouchableOpacity, FlatList,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAuthStore } from '../../src/store/authStore';
-import { useGroupsStore } from '../../src/store/groupsStore';
-import { GroupCard } from '../../src/components/GroupCard';
-import { EmptyState, SectionHeader, Avatar } from '../../src/components/UI';
-import { Colors, Spacing, FontSize, Radius } from '../../src/constants';
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { GroupCard } from "../../src/components/GroupCard";
+import { Avatar, EmptyState, SectionHeader } from "../../src/components/UI";
+import { Colors, FontSize, Radius, Spacing } from "../../src/constants";
+import { formatCurrency } from "../../src/lib/currency";
+import { Language, t } from "../../src/lib/i18n";
+import { useAuthStore } from "../../src/store/authStore";
+import { useGroupsStore } from "../../src/store/groupsStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { groups, fetchGroups, isLoading } = useGroupsStore();
+  const { settings } = useSettingsStore();
 
   useEffect(() => {
     fetchGroups();
@@ -26,21 +36,38 @@ export default function HomeScreen() {
   }, []);
 
   // Compute quick stats
-  const totalSaved = groups.reduce((sum, g) => {
-    const userMember = g.members?.find(m => m.user_id === user?.id);
-    return sum + (userMember?.current_amount ?? 0);
-  }, 0);
+  const totalSaved = useMemo(
+    () =>
+      groups.reduce((sum, g) => {
+        const userMember = g.members?.find((m) => m.user_id === user?.id);
+        return sum + (userMember?.current_amount ?? 0);
+      }, 0),
+    [groups, user?.id],
+  );
 
-  const maxStreak = groups.reduce((max, g) => {
-    const userMember = g.members?.find(m => m.user_id === user?.id);
-    return Math.max(max, userMember?.streak_days ?? 0);
-  }, 0);
+  const maxStreak = useMemo(
+    () =>
+      groups.reduce((max, g) => {
+        const userMember = g.members?.find((m) => m.user_id === user?.id);
+        return Math.max(max, userMember?.streak_days ?? 0);
+      }, 0),
+    [groups, user?.id],
+  );
 
   // Get recent activity across all groups
-  const recentActivity = groups
-    .flatMap(g => (g.contributions ?? []).map(c => ({ ...c, groupName: g.name })))
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 5);
+  const recentActivity = useMemo(
+    () =>
+      groups
+        .flatMap((g) =>
+          (g.contributions ?? []).map((c) => ({ ...c, groupName: g.name })),
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+        .slice(0, 5),
+    [groups],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -56,51 +83,75 @@ export default function HomeScreen() {
       >
         {/* Hero Header */}
         <LinearGradient
-          colors={['#1a1555', '#0f1729', Colors.bg]}
+          colors={["#1a1555", "#0f1729", Colors.bg]}
           style={styles.hero}
         >
           <View style={styles.heroTop}>
-            <View>
-              <Text style={styles.greeting}>¡Hola de vuelta!</Text>
-              <Text style={styles.userName}>{user?.name ?? 'Viajero'} 👋</Text>
+            <View style={styles.userInfo}>
+              <Text style={styles.greeting}>
+                {t("welcomeBack", settings.language)}
+              </Text>
+              <Text
+                style={styles.userName}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {user?.name ?? t("traveler", settings.language)}
+              </Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
-              <Avatar name={user?.name ?? 'U'} size={46} />
+            <TouchableOpacity onPress={() => router.push("/(tabs)/profile")}>
+              <Avatar
+                name={user?.name ?? "U"}
+                size={46}
+                imageUrl={user?.avatar_url}
+              />
             </TouchableOpacity>
           </View>
 
           {/* Quick Stats */}
           <View style={styles.statsRow}>
-            <StatCard label="Total ahorrado" value={`$${totalSaved.toFixed(0)}`} color={Colors.green} />
-            <StatCard label="Grupos activos" value={String(groups.length)} color={Colors.accent2} />
-            <StatCard label="Racha 🔥" value={`${maxStreak}d`} color={Colors.yellow} />
+            <StatCard
+              label={t("totalSaved", settings.language)}
+              value={formatCurrency(totalSaved, settings.currency)}
+              color={Colors.green}
+            />
+            <StatCard
+              label={t("activeGroups", settings.language)}
+              value={String(groups.length)}
+              color={Colors.accent2}
+            />
+            <StatCard
+              label={t("streak", settings.language)}
+              value={`${maxStreak}d`}
+              color={Colors.yellow}
+            />
           </View>
         </LinearGradient>
 
         {/* My Groups */}
         <SectionHeader
-          title="Mis metas"
-          action="+ Nueva"
-          onAction={() => router.push('/(tabs)/create')}
+          title={t("myGoals", settings.language)}
+          action={t("newGoal", settings.language)}
+          onAction={() => router.push("/(tabs)/create")}
           style={{ marginTop: Spacing.sm }}
         />
 
         {groups.length === 0 ? (
           <View style={{ paddingHorizontal: Spacing.xl }}>
             <EmptyState
-              emoji="✈️"
-              title="Sin metas todavía"
-              description="Crea tu primera meta grupal y empieza a ahorrar con tu crew."
+              icon="airplane"
+              title={t("noGoalsYet", settings.language)}
+              description={t("noGoalsDesc", settings.language)}
               action={{
-                label: '🚀 Crear primera meta',
-                onPress: () => router.push('/(tabs)/create'),
+                label: t("createFirstGoal", settings.language),
+                onPress: () => router.push("/(tabs)/create"),
               }}
             />
           </View>
         ) : (
           <FlatList
             data={groups}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.groupsList}
@@ -112,11 +163,13 @@ export default function HomeScreen() {
             )}
             ListFooterComponent={
               <TouchableOpacity
-                onPress={() => router.push('/(tabs)/create')}
+                onPress={() => router.push("/(tabs)/create")}
                 style={styles.addCard}
               >
                 <Text style={styles.addCardIcon}>+</Text>
-                <Text style={styles.addCardLabel}>Nueva meta</Text>
+                <Text style={styles.addCardLabel}>
+                  {t("newGoalCard", settings.language)}
+                </Text>
               </TouchableOpacity>
             }
           />
@@ -125,8 +178,13 @@ export default function HomeScreen() {
         {/* Recent Activity */}
         {recentActivity.length > 0 && (
           <>
-            <SectionHeader title="Actividad reciente" style={{ marginTop: Spacing.xl }} />
-            <View style={[styles.activityCard, { marginHorizontal: Spacing.xl }]}>
+            <SectionHeader
+              title={t("recentActivity", settings.language)}
+              style={{ marginTop: Spacing.xl }}
+            />
+            <View
+              style={[styles.activityCard, { marginHorizontal: Spacing.xl }]}
+            >
               {recentActivity.map((item, idx) => (
                 <ActivityItem key={item.id ?? idx} item={item} />
               ))}
@@ -137,11 +195,15 @@ export default function HomeScreen() {
         {/* Join a Group */}
         <View style={styles.joinSection}>
           <TouchableOpacity
-            onPress={() => router.push('/group/join')}
+            onPress={() => router.push("/group/join")}
             style={styles.joinBtn}
           >
-            <Text style={styles.joinText}>🔗 ¿Tienes un código de invitación?</Text>
-            <Text style={styles.joinSubtext}>Únete a un grupo existente</Text>
+            <Text style={styles.joinText}>
+              {t("hasInviteCode", settings.language)}
+            </Text>
+            <Text style={styles.joinSubtext}>
+              {t("joinExistingGroup", settings.language)}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -149,7 +211,15 @@ export default function HomeScreen() {
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
+function StatCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
   return (
     <View style={styles.statCard}>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
@@ -159,30 +229,46 @@ function StatCard({ label, value, color }: { label: string; value: string; color
 }
 
 function ActivityItem({ item }: { item: any }) {
-  const timeAgo = getTimeAgo(item.created_at);
+  const { settings } = useSettingsStore();
+  const timeAgo = getTimeAgo(item.created_at, settings.language);
   return (
     <View style={styles.activityItem}>
-      <Text style={styles.activityIcon}>💰</Text>
+      <Ionicons
+        name="cash"
+        size={16}
+        color={Colors.accent2}
+        style={styles.activityIcon}
+      />
       <View style={{ flex: 1 }}>
         <Text style={styles.activityText}>
-          <Text style={{ fontWeight: '800' }}>{item.user?.name ?? 'Alguien'}</Text>
-          {` ahorró $${item.amount}`}
+          <Text style={{ fontWeight: "800" }}>
+            {item.user?.name ?? t("someone", settings.language)}
+          </Text>
+          {` ${t("saved", settings.language)} ${formatCurrency(item.amount, settings.currency)}`}
         </Text>
-        <Text style={styles.activitySub}>{item.groupName} · {timeAgo}</Text>
+        <Text style={styles.activitySub}>
+          {item.groupName} · {timeAgo}
+        </Text>
       </View>
     </View>
   );
 }
 
-function getTimeAgo(dateString: string): string {
+function getTimeAgo(dateString: string, lang: Language = "es"): string {
   const now = new Date();
   const date = new Date(dateString);
   const diffMs = now.getTime() - date.getTime();
   const diffH = Math.floor(diffMs / 3600000);
-  if (diffH < 1) return 'hace poco';
-  if (diffH < 24) return `hace ${diffH}h`;
+  if (diffH < 1) return t("justNow", lang);
+  if (diffH < 24) {
+    return lang === "en"
+      ? `${diffH}h ${t("hoursAgo", lang)}`
+      : `${t("hoursAgo", lang)} ${diffH}h`;
+  }
   const diffD = Math.floor(diffH / 24);
-  return `hace ${diffD}d`;
+  return lang === "en"
+    ? `${diffD}d ${t("daysAgo", lang)}`
+    : `${t("daysAgo", lang)} ${diffD}d`;
 }
 
 const styles = StyleSheet.create({
@@ -195,38 +281,50 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   heroTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: Spacing.lg,
     marginBottom: Spacing.lg,
   },
+  userInfo: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
   greeting: { fontSize: FontSize.sm, color: Colors.text2 },
-  userName: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.text },
-  statsRow: { flexDirection: 'row', gap: Spacing.sm },
+  userName: { fontSize: FontSize.xl, fontWeight: "900", color: Colors.text },
+  statsRow: { flexDirection: "row", gap: Spacing.sm },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: "rgba(255,255,255,0.06)",
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: "rgba(255,255,255,0.08)",
   },
-  statValue: { fontSize: FontSize.xl, fontWeight: '900', marginBottom: 2 },
+  statValue: { fontSize: FontSize.xl, fontWeight: "900", marginBottom: 2 },
   statLabel: { fontSize: FontSize.xs, color: Colors.text2 },
-  groupsList: { paddingHorizontal: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing.sm },
+  groupsList: {
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
   addCard: {
     width: 130,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: Radius.xl,
     borderWidth: 2,
     borderColor: Colors.surface3,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     minHeight: 180,
   },
   addCardIcon: { fontSize: 32, color: Colors.text3, marginBottom: Spacing.sm },
-  addCardLabel: { fontSize: FontSize.sm, color: Colors.text3, fontWeight: '700' },
+  addCardLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.text3,
+    fontWeight: "700",
+  },
   activityCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
@@ -235,14 +333,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.surface3,
   },
   activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.surface3,
   },
-  activityIcon: { fontSize: 20 },
+  activityIcon: { marginRight: 8 },
   activityText: { fontSize: FontSize.base, color: Colors.text },
   activitySub: { fontSize: FontSize.xs, color: Colors.text2, marginTop: 2 },
   joinSection: { padding: Spacing.xl },
@@ -250,11 +348,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface2,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.surface3,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
-  joinText: { fontSize: FontSize.base, color: Colors.accent2, fontWeight: '700' },
+  joinText: {
+    fontSize: FontSize.base,
+    color: Colors.accent2,
+    fontWeight: "700",
+  },
   joinSubtext: { fontSize: FontSize.xs, color: Colors.text2, marginTop: 4 },
 });

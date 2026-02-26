@@ -6,6 +6,10 @@ expo-env.d.ts
 .expo/
 # @end expo-cli
 
+# Secrets
+.env
+.env.local
+
 android
 
 node_modules

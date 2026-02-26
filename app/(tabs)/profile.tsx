@@ -1,7 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
+import { decode } from "base64-arraybuffer";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AchievementIcon } from "../../src/components/AchievementIcon";
 import { Avatar, Button, Card, SectionHeader } from "../../src/components/UI";
@@ -11,53 +22,89 @@ import {
   FontSize,
   Radius,
   Spacing,
+  TRIP_ICONS,
 } from "../../src/constants";
+import { formatCurrency } from "../../src/lib/currency";
+import { getAchievementText, t } from "../../src/lib/i18n";
+import { supabase } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
 
-const DAYS_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
+const DAYS_SHORT_I18N: Record<string, string[]> = {
+  es: ["L", "M", "M", "J", "V", "S", "D"],
+  en: ["M", "T", "W", "T", "F", "S", "S"],
+  fr: ["L", "M", "M", "J", "V", "S", "D"],
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut, updateProfile } = useAuthStore();
   const { groups } = useGroupsStore();
+  const { settings } = useSettingsStore();
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const lang = settings.language || "es";
+  const DAYS_SHORT = DAYS_SHORT_I18N[lang] || DAYS_SHORT_I18N.es;
 
   // Compute stats
-  const totalSaved = groups.reduce((sum, g) => {
-    const m = g.members?.find((m) => m.user_id === user?.id);
-    return sum + (m?.current_amount ?? 0);
-  }, 0);
+  const totalSaved = useMemo(
+    () =>
+      groups.reduce((sum, g) => {
+        const m = g.members?.find((m) => m.user_id === user?.id);
+        return sum + (m?.current_amount ?? 0);
+      }, 0),
+    [groups, user?.id],
+  );
 
-  const totalPoints = groups.reduce((sum, g) => {
-    const m = g.members?.find((m) => m.user_id === user?.id);
-    return sum + (m?.total_points ?? 0);
-  }, 0);
+  const totalPoints = useMemo(
+    () =>
+      groups.reduce((sum, g) => {
+        const m = g.members?.find((m) => m.user_id === user?.id);
+        return sum + (m?.total_points ?? 0);
+      }, 0),
+    [groups, user?.id],
+  );
 
-  const maxStreak = groups.reduce((max, g) => {
-    const m = g.members?.find((m) => m.user_id === user?.id);
-    return Math.max(max, m?.streak_days ?? 0);
-  }, 0);
+  const maxStreak = useMemo(
+    () =>
+      groups.reduce((max, g) => {
+        const m = g.members?.find((m) => m.user_id === user?.id);
+        return Math.max(max, m?.streak_days ?? 0);
+      }, 0),
+    [groups, user?.id],
+  );
 
   // Collect all earned achievements (unique)
-  const earnedAchievements = new Set<AchievementType>();
-  // In a real app, fetch from DB
-  if (maxStreak >= 3) earnedAchievements.add("streak_3");
-  if (maxStreak >= 7) earnedAchievements.add("streak_7");
-  if (totalSaved > 0) earnedAchievements.add("first_contribution");
+  const earnedAchievements = useMemo(() => {
+    const set = new Set<AchievementType>();
+    if (maxStreak >= 3) set.add("streak_3");
+    if (maxStreak >= 7) set.add("streak_7");
+    if (totalSaved > 0) set.add("first_contribution");
+    return set;
+  }, [maxStreak, totalSaved]);
 
   // Build streak week dots (simulate)
-  const streakDots = DAYS_SHORT.map((day, idx) => ({
-    day,
-    done: idx < maxStreak,
-    isToday: idx === new Date().getDay() - 1,
-  }));
+  const streakDots = useMemo(
+    () =>
+      DAYS_SHORT.map((day, idx) => ({
+        day,
+        done: idx < maxStreak,
+        isToday: idx === new Date().getDay() - 1,
+      })),
+    [DAYS_SHORT, maxStreak],
+  );
+
+  const handleSettings = () => {
+    router.push("/settings");
+  };
 
   const handleSignOut = () => {
-    Alert.alert("Cerrar sesión", "¿Seguro que quieres salir?", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert(t("signOut", lang), t("signOutConfirm", lang), [
+      { text: t("cancel", lang), style: "cancel" },
       {
-        text: "Salir",
+        text: t("signOutBtn", lang),
         style: "destructive",
         onPress: async () => {
           await signOut();
@@ -68,6 +115,94 @@ export default function ProfileScreen() {
   };
 
   if (!user) return null;
+
+  const handleChangeAvatar = async () => {
+    Alert.alert(t("changePhoto", lang), t("selectPhotoSource", lang), [
+      {
+        text: t("camera", lang),
+        onPress: () => pickImage("camera"),
+      },
+      {
+        text: t("gallery", lang),
+        onPress: () => pickImage("gallery"),
+      },
+      { text: t("cancel", lang), style: "cancel" },
+    ]);
+  };
+
+  const pickImage = async (source: "camera" | "gallery") => {
+    try {
+      // Request permissions
+      if (source === "camera") {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(t("error", lang), t("cameraPermission", lang));
+          return;
+        }
+      } else {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(t("error", lang), t("galleryPermission", lang));
+          return;
+        }
+      }
+
+      const result =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+              base64: true,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+              base64: true,
+            });
+
+      if (result.canceled || !result.assets[0].base64) return;
+
+      setIsUploadingAvatar(true);
+      const asset = result.assets[0];
+      const ext = asset.uri.split(".").pop()?.toLowerCase() || "jpg";
+      const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+      const filePath = `${user.id}/avatar.${ext}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, decode(asset.base64), {
+          contentType: mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("❌ Upload error:", uploadError);
+        Alert.alert(t("error", lang), t("uploadError", lang));
+        setIsUploadingAvatar(false);
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      // Add cache-busting timestamp
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Update user profile
+      await updateProfile({ avatar_url: publicUrl });
+      setIsUploadingAvatar(false);
+    } catch (error: any) {
+      console.error("❌ Avatar change error:", error);
+      Alert.alert(t("error", lang), t("uploadError", lang));
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const allAchievements = Object.keys(ACHIEVEMENTS) as AchievementType[];
 
@@ -80,23 +215,60 @@ export default function ProfileScreen() {
           style={styles.headerGradient}
         >
           <View style={styles.profileHero}>
-            <View style={styles.avatarWrap}>
-              <Avatar name={user.name} size={88} />
+            <TouchableOpacity
+              style={styles.avatarWrap}
+              onPress={handleChangeAvatar}
+              disabled={isUploadingAvatar}
+            >
+              {isUploadingAvatar ? (
+                <View
+                  style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: 44,
+                    backgroundColor: Colors.surface2,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ActivityIndicator size="small" color={Colors.accent} />
+                </View>
+              ) : (
+                <Avatar name={user.name} size={88} imageUrl={user.avatar_url} />
+              )}
               <View style={styles.editAvatarBtn}>
-                <Text style={{ fontSize: 12 }}>📷</Text>
+                <Ionicons name="camera" size={12} color={Colors.text2} />
               </View>
-            </View>
+            </TouchableOpacity>
             <Text style={styles.userName}>{user.name}</Text>
             <Text style={styles.userEmail}>{user.email}</Text>
             <View style={styles.badges}>
               <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>🏆 Nivel 3</Text>
+                <View style={styles.levelBadgeContent}>
+                  <Ionicons
+                    name="trophy"
+                    size={14}
+                    color={Colors.accent2}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.levelBadgeText}>
+                    {t("level", lang)} 3
+                  </Text>
+                </View>
               </View>
               {maxStreak > 0 && (
                 <View style={styles.streakBadge}>
-                  <Text style={styles.streakBadgeText}>
-                    🔥 Racha {maxStreak}
-                  </Text>
+                  <View style={styles.streakBadgeContent}>
+                    <Ionicons
+                      name="flame"
+                      size={14}
+                      color={Colors.yellow}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.streakBadgeText}>
+                      {t("streak", lang)} {maxStreak}
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -106,17 +278,17 @@ export default function ProfileScreen() {
         {/* Stats */}
         <View style={styles.statsRow}>
           <StatCard
-            label="Total ahorrado"
-            value={`$${totalSaved.toFixed(0)}`}
+            label={t("totalSaved", lang)}
+            value={formatCurrency(totalSaved, settings.currency)}
             color={Colors.green}
           />
           <StatCard
-            label="Puntos"
+            label={t("points", lang)}
             value={totalPoints.toLocaleString()}
             color={Colors.accent2}
           />
           <StatCard
-            label="Medallas"
+            label={t("medals", lang)}
             value={String(earnedAchievements.size)}
             color={Colors.yellow}
           />
@@ -124,26 +296,35 @@ export default function ProfileScreen() {
 
         {/* Streak */}
         <SectionHeader
-          title="Racha semanal 🔥"
+          title={t("weeklyStreak", lang)}
           style={{ marginTop: Spacing.xl }}
         />
         <View style={{ paddingHorizontal: Spacing.xl }}>
           <Card>
             <View style={styles.streakRow}>
               <View>
-                <Text style={styles.streakNumber}>{maxStreak} días</Text>
+                <Text style={styles.streakNumber}>
+                  {maxStreak} {t("days", lang)}
+                </Text>
                 <Text style={styles.streakSub}>
                   {maxStreak >= 7
-                    ? "🏆 ¡Racha épica!"
+                    ? t("epicStreak", lang)
                     : maxStreak >= 3
-                      ? "🔥 ¡Vas bien!"
+                      ? t("goingWell", lang)
                       : maxStreak >= 1
-                        ? "💪 ¡Sigue así!"
-                        : "🌱 ¡Empieza hoy!"}
+                        ? t("keepItUp", lang)
+                        : t("startToday", lang)}
                 </Text>
               </View>
               <Text style={styles.streakBigEmoji}>
-                {maxStreak >= 7 ? "🔥🔥🔥" : maxStreak >= 3 ? "🔥🔥" : "🔥"}
+                {Array.from({ length: Math.min(maxStreak, 7) }, (_, i) => (
+                  <Ionicons
+                    key={i}
+                    name="flame"
+                    size={12}
+                    color={Colors.yellow}
+                  />
+                ))}
               </Text>
             </View>
             <View style={styles.streakDots}>
@@ -174,7 +355,10 @@ export default function ProfileScreen() {
         </View>
 
         {/* Achievements */}
-        <SectionHeader title="Mis medallas" style={{ marginTop: Spacing.xl }} />
+        <SectionHeader
+          title={t("myMedals", lang)}
+          style={{ marginTop: Spacing.xl }}
+        />
         <View style={styles.achievementsGrid}>
           {allAchievements.map((type) => {
             const a = ACHIEVEMENTS[type];
@@ -195,16 +379,26 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.medalName, !earned && styles.medalLockedText]}
                 >
-                  {a.title}
+                  {getAchievementText(type, lang).title}
                 </Text>
-                {!earned && <Text style={styles.medalLockIcon}>🔒</Text>}
+                {!earned && (
+                  <Ionicons
+                    name="lock-closed"
+                    size={12}
+                    color={Colors.text3}
+                    style={styles.medalLockIcon}
+                  />
+                )}
               </View>
             );
           })}
         </View>
 
         {/* My groups summary */}
-        <SectionHeader title="Mis grupos" style={{ marginTop: Spacing.xl }} />
+        <SectionHeader
+          title={t("myGroups", lang)}
+          style={{ marginTop: Spacing.xl }}
+        />
         <View style={{ paddingHorizontal: Spacing.xl, gap: Spacing.sm }}>
           {groups.map((group) => {
             const myMember = group.members?.find((m) => m.user_id === user.id);
@@ -217,7 +411,20 @@ export default function ProfileScreen() {
                   gap: Spacing.md,
                 }}
               >
-                <Text style={{ fontSize: 28 }}>{group.emoji}</Text>
+                <View style={styles.groupIconContainer}>
+                  {(() => {
+                    const groupIcon =
+                      TRIP_ICONS.find((icon) => icon.name === group.emoji) ||
+                      TRIP_ICONS[0];
+                    return (
+                      <Ionicons
+                        name={groupIcon.name as any}
+                        size={28}
+                        color={groupIcon.color}
+                      />
+                    );
+                  })()}
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
@@ -229,9 +436,16 @@ export default function ProfileScreen() {
                     {group.name}
                   </Text>
                   <Text style={{ fontSize: FontSize.xs, color: Colors.text2 }}>
-                    ${myMember?.current_amount.toFixed(0)} / $
-                    {myMember?.individual_goal.toFixed(0)} ·{" "}
-                    {group.progress_percent}% global
+                    {formatCurrency(
+                      myMember?.current_amount || 0,
+                      settings.currency,
+                    )}{" "}
+                    /{" "}
+                    {formatCurrency(
+                      myMember?.individual_goal || 0,
+                      settings.currency,
+                    )}{" "}
+                    · {group.progress_percent}% global
                   </Text>
                 </View>
               </Card>
@@ -248,16 +462,16 @@ export default function ProfileScreen() {
           }}
         >
           <Button
-            title="⚙️ Configuración"
+            title={t("settings", lang)}
             variant="secondary"
-            onPress={() => {}}
+            onPress={handleSettings}
           />
           <Button
-            title="Cerrar sesión"
+            title={t("signOut", lang)}
             variant="danger"
             onPress={handleSignOut}
           />
-          <Text style={styles.version}>GoalCrew v1.0.0 · Made with ❤️</Text>
+          <Text style={styles.version}>GoalCrew v1.0.0 · Made with 💜</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -323,6 +537,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(108,99,255,0.3)",
   },
+  levelBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   levelBadgeText: {
     fontSize: FontSize.xs,
     fontWeight: "800",
@@ -335,6 +553,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     borderWidth: 1,
     borderColor: "rgba(251,191,36,0.3)",
+  },
+  streakBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   streakBadgeText: {
     fontSize: FontSize.xs,
@@ -415,11 +637,15 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   medalLockedText: { opacity: 0.5 },
-  medalLockIcon: { fontSize: 12, marginTop: 4, opacity: 0.5 },
+  medalLockIcon: { marginTop: 4, opacity: 0.5 },
   version: {
     textAlign: "center",
     fontSize: FontSize.xs,
     color: Colors.text3,
     marginTop: Spacing.sm,
+  },
+  groupIconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

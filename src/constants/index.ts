@@ -115,7 +115,7 @@ export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
   },
   early_bird: {
     type: "early_bird",
-    icon: "sunrise",
+    icon: "sunny",
     color: "#F97316",
     title: "Early bird",
     description: "Completaste la meta antes de tiempo",
@@ -166,8 +166,8 @@ export const FREQUENCY_LABELS = {
 
 // ─── Trip Icons ─────────────────────────────────────────────────────────────
 export const TRIP_ICONS = [
-  { name: "beach", color: "#00B4D8" },
-  { name: "business", color: "#6C757D" },
+  { name: "sunny", color: "#00B4D8" },
+  { name: "briefcase", color: "#6C757D" },
   { name: "snow", color: "#0077BE" },
   { name: "airplane", color: "#6C63FF" },
   { name: "car-sport", color: "#DC2626" },

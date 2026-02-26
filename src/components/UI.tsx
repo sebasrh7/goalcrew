@@ -1,8 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,6 +12,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { t as _t } from "../lib/i18n";
 import { MemberStatus } from "../types";
 
 // ─── Button ──────────────────────────────────────────────────────────────────
@@ -167,11 +170,18 @@ export function Card({ children, style, gradient }: CardProps) {
 interface AvatarProps {
   name: string;
   size?: number;
+  imageUrl?: string | null;
   gradient?: readonly [string, string];
   style?: ViewStyle;
 }
 
-export function Avatar({ name, size = 40, gradient, style }: AvatarProps) {
+export function Avatar({
+  name,
+  size = 40,
+  imageUrl,
+  gradient,
+  style,
+}: AvatarProps) {
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -181,6 +191,22 @@ export function Avatar({ name, size = 40, gradient, style }: AvatarProps) {
 
   const fontSize = size * 0.35;
   const colors = gradient ?? getAvatarGradient(name);
+
+  if (imageUrl) {
+    return (
+      <Image
+        source={{ uri: imageUrl }}
+        style={[
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+          style,
+        ]}
+      />
+    );
+  }
 
   return (
     <LinearGradient
@@ -275,23 +301,28 @@ interface StatusPillProps {
   style?: ViewStyle;
 }
 
-export function StatusPill({ status, style }: StatusPillProps) {
+export function StatusPill({
+  status,
+  style,
+  lang,
+}: StatusPillProps & { lang?: string }) {
+  const l = lang || "es";
   const config = {
     on_track: {
-      emoji: "🟢",
-      label: "Al día",
+      icon: "checkmark-circle",
+      label: _t("statusOnTrack", l),
       bg: "rgba(34,211,160,.15)",
       color: Colors.green,
     },
     at_risk: {
-      emoji: "🟡",
-      label: "En riesgo",
+      icon: "warning",
+      label: _t("statusAtRisk", l),
       bg: "rgba(251,191,36,.15)",
       color: Colors.yellow,
     },
     behind: {
-      emoji: "🔴",
-      label: "Atrasado",
+      icon: "close-circle",
+      label: _t("statusBehind", l),
       bg: "rgba(248,113,113,.15)",
       color: Colors.red,
     },
@@ -299,8 +330,8 @@ export function StatusPill({ status, style }: StatusPillProps) {
 
   return (
     <View style={[styles.pill, { backgroundColor: config.bg }, style]}>
-      <Text style={{ fontSize: 10 }}>{config.emoji}</Text>
-      <Text style={[styles.pillText, { color: config.color }]}>
+      <Ionicons name={config.icon as any} size={10} color={config.color} />
+      <Text style={[styles.pillText, { color: config.color, marginLeft: 4 }]}>
         {config.label}
       </Text>
     </View>
@@ -337,21 +368,26 @@ export function SectionHeader({
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
 interface EmptyStateProps {
-  emoji: string;
+  icon: string;
   title: string;
   description: string;
   action?: { label: string; onPress: () => void };
 }
 
 export function EmptyState({
-  emoji,
+  icon,
   title,
   description,
   action,
 }: EmptyStateProps) {
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyEmoji}>{emoji}</Text>
+      <Ionicons
+        name={icon as any}
+        size={48}
+        color={Colors.text3}
+        style={styles.emptyIcon}
+      />
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyDesc}>{description}</Text>
       {action && (
@@ -423,8 +459,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xxxl,
     paddingHorizontal: Spacing.xxl,
   },
-  emptyEmoji: {
-    fontSize: 56,
+  emptyIcon: {
     marginBottom: Spacing.lg,
   },
   emptyTitle: {

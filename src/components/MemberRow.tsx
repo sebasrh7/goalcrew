@@ -2,6 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { formatCurrency } from "../lib/currency";
+import { t } from "../lib/i18n";
+import { useSettingsStore } from "../store/settingsStore";
 import { GroupMember } from "../types";
 import { Avatar, ProgressBar, StatusPill } from "./UI";
 
@@ -21,6 +24,8 @@ export function MemberRow({
   isCurrentUser = false,
 }: MemberRowProps) {
   const user = member.user;
+  const { settings } = useSettingsStore();
+  const lang = settings.language || "es";
   if (!user) return null;
 
   const progress =
@@ -55,7 +60,7 @@ export function MemberRow({
       )}
 
       {/* Avatar */}
-      <Avatar name={user.name} size={42} />
+      <Avatar name={user.name} size={42} imageUrl={user.avatar_url} />
 
       {/* Info */}
       <View style={styles.info}>
@@ -63,7 +68,7 @@ export function MemberRow({
           <Text
             style={[styles.name, isCurrentUser && { color: Colors.accent2 }]}
           >
-            {isCurrentUser ? `${user.name} (tú)` : user.name}
+            {isCurrentUser ? `${user.name} ${t("youSuffix", lang)}` : user.name}
           </Text>
           {member.streak_days >= 3 && (
             <View style={styles.streakContainer}>
@@ -73,11 +78,15 @@ export function MemberRow({
           )}
         </View>
         <View style={styles.subRow}>
-          <StatusPill status={member.status} style={styles.statusPill} />
+          <StatusPill
+            status={member.status}
+            style={styles.statusPill}
+            lang={lang}
+          />
           {member.streak_days === 0 && (
             <View style={styles.noStreakContainer}>
               <Ionicons name="warning" size={14} color="#FF9500" />
-              <Text style={styles.noStreak}>Sin racha</Text>
+              <Text style={styles.noStreak}>{t("noStreak", lang)}</Text>
             </View>
           )}
         </View>
@@ -100,9 +109,11 @@ export function MemberRow({
                 : { color: Colors.red },
           ]}
         >
-          ${member.current_amount.toFixed(0)}
+          {formatCurrency(member.current_amount, settings.currency)}
         </Text>
-        <Text style={styles.goal}>/ ${member.individual_goal.toFixed(0)}</Text>
+        <Text style={styles.goal}>
+          / {formatCurrency(member.individual_goal, settings.currency)}
+        </Text>
         {showRank && (
           <Text style={styles.points}>{member.total_points} pts</Text>
         )}

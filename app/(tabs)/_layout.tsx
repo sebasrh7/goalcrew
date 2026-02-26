@@ -4,10 +4,14 @@ import { Redirect, Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../src/constants";
+import { t } from "../../src/lib/i18n";
 import { useAuthStore } from "../../src/store/authStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
 
 export default function TabsLayout() {
   const { isAuthenticated } = useAuthStore();
+  const { settings } = useSettingsStore();
+  const lang = settings?.language || "es";
   const insets = useSafeAreaInsets();
 
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
@@ -32,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Inicio",
+          title: t("home", lang),
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? "home" : "home-outline"}
@@ -45,7 +49,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: "Crear",
+          title: t("create", lang),
           tabBarIcon: ({ focused }) => (
             <View style={[styles.createBtn, focused && styles.createBtnActive]}>
               <LinearGradient
@@ -64,7 +68,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Perfil",
+          title: t("profile", lang),
           tabBarIcon: ({ focused, color }) => (
             <Ionicons
               name={focused ? "person" : "person-outline"}

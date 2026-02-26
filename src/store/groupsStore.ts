@@ -3,11 +3,35 @@ import { create } from "zustand";
 import { getMemberStatus } from "../constants";
 import {
   createGroup as apiCreateGroup,
+  deleteGroupApi,
   fetchGroupWithMembers,
   joinGroupByCode,
+  leaveGroupApi,
   supabase,
+  updateGroupApi,
 } from "../lib/supabase";
 import { CreateGroupInput, Group, GroupWithStats, GroupsState } from "../types";
+
+/** Returns the number of days in one period for a given frequency */
+function getFrequencyDays(
+  frequency: string,
+  customDays?: number | null,
+): number {
+  switch (frequency) {
+    case "daily":
+      return 1;
+    case "weekly":
+      return 7;
+    case "biweekly":
+      return 14;
+    case "monthly":
+      return 30;
+    case "custom":
+      return customDays && customDays > 0 ? customDays : 7;
+    default:
+      return 7;
+  }
+}
 
 export const useGroupsStore = create<GroupsState>((set, get) => ({
   groups: [],
@@ -99,30 +123,62 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
       deadline: input.deadline,
       goal_amount: input.goal_amount,
       frequency: input.frequency,
+      custom_frequency_days: input.custom_frequency_days ?? null,
       division_type: input.division_type,
-      created_by: user.id,
-    });
-
-    // Auto-join as creator
-    await supabase.from("group_members").insert({
-      group_id: group.id,
-      user_id: user.id,
-      individual_goal: input.goal_amount,
-      current_amount: 0,
-      streak_days: 0,
-      total_points: 0,
     });
 
     await get().fetchGroups();
     return group;
   },
 
-  joinGroup: async (inviteCode: string) => {
+  joinGroup: async (inviteCode: string, individualGoal?: number) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
-    await joinGroupByCode(inviteCode, user.id);
+    await joinGroupByCode(inviteCode, user.id, individualGoal);
+    await get().fetchGroups();
+  },
+
+  updateMemberGoal: async (groupId: string, newGoal: number) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { error } = await supabase
+      .from("group_members")
+      .update({ individual_goal: newGoal })
+      .eq("group_id", groupId)
+      .eq("user_id", user.id);
+
+    if (error) throw error;
+
+    // Refresh current group to reflect the change
+    await get().fetchGroup(groupId);
+  },
+
+  leaveGroup: async (groupId: string) => {
+    await leaveGroupApi(groupId);
+    set((state) => ({
+      groups: state.groups.filter((g) => g.id !== groupId),
+      currentGroup:
+        state.currentGroup?.id === groupId ? null : state.currentGroup,
+    }));
+  },
+
+  deleteGroup: async (groupId: string) => {
+    await deleteGroupApi(groupId);
+    set((state) => ({
+      groups: state.groups.filter((g) => g.id !== groupId),
+      currentGroup:
+        state.currentGroup?.id === groupId ? null : state.currentGroup,
+    }));
+  },
+
+  updateGroup: async (groupId: string, updates: Record<string, any>) => {
+    await updateGroupApi(groupId, updates);
+    await get().fetchGroup(groupId);
     await get().fetchGroups();
   },
 }));
@@ -152,12 +208,14 @@ function computeGroupStats(raw: any): GroupWithStats {
   const progress_percent =
     total_goal > 0 ? Math.round((total_saved / total_goal) * 100) : 0;
 
+  const frequencyDays = getFrequencyDays(
+    raw.frequency,
+    raw.custom_frequency_days,
+  );
   const periodsRemaining =
-    raw.frequency === "daily"
+    frequencyDays === 1
       ? daysRemaining
-      : raw.frequency === "weekly"
-        ? Math.ceil(daysRemaining / 7)
-        : Math.ceil(daysRemaining / 30);
+      : Math.ceil(daysRemaining / frequencyDays);
 
   const per_period_needed =
     periodsRemaining > 0

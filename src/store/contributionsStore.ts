@@ -1,8 +1,16 @@
-import { create } from 'zustand';
-import { supabase, addContribution as apiAdd, fetchGroupContributions, unlockAchievement } from '../lib/supabase';
-import { Contribution, ContributionsState } from '../types';
-import { calculatePoints } from '../constants';
-import { useGroupsStore } from './groupsStore';
+import { create } from "zustand";
+import { notifyAchievement, notifyGoalCompleted } from "../lib/notifications";
+import {
+  addContribution as apiAdd,
+  deleteContributionApi,
+  fetchGroupContributions,
+  supabase,
+  unlockAchievement,
+  updateContributionApi,
+} from "../lib/supabase";
+import { ContributionsState } from "../types";
+import { useGroupsStore } from "./groupsStore";
+import { useSettingsStore } from "./settingsStore";
 
 interface ContributionsStoreState extends ContributionsState {
   lastUnlockedAchievement: string | null;
@@ -19,42 +27,37 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
   addContribution: async (groupId: string, amount: number, note?: string) => {
     set({ isLoading: true });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
+      // The RPC update_member_after_contribution handles:
+      // current_amount, streak_days, total_points, status — all server-side
       const contribution = await apiAdd(user.id, groupId, amount, note);
 
       // Update local state optimistically
-      set(state => ({
+      set((state) => ({
         contributions: [contribution, ...state.contributions],
       }));
 
-      // Get current member data for points calculation
+      // Read back updated member data (after server-side RPC)
       const { data: member } = await supabase
-        .from('group_members')
-        .select('streak_days, current_amount, total_points, individual_goal')
-        .eq('user_id', user.id)
-        .eq('group_id', groupId)
+        .from("group_members")
+        .select("streak_days, current_amount, individual_goal")
+        .eq("user_id", user.id)
+        .eq("group_id", groupId)
         .single();
 
-      const points = calculatePoints(amount, member?.streak_days ?? 0);
-
-      // Update points
-      await supabase
-        .from('group_members')
-        .update({ total_points: (member?.total_points ?? 0) + points })
-        .eq('user_id', user.id)
-        .eq('group_id', groupId);
-
-      // Check achievements
+      // Check achievements based on server-calculated values
       await checkAndUnlockAchievements(
         user.id,
         groupId,
         amount,
-        member?.current_amount ?? 0,
+        (member?.current_amount ?? amount) - amount, // pre-contribution amount
         member?.streak_days ?? 0,
         member?.individual_goal ?? 0,
-        set
+        set,
       );
 
       // Refresh group data
@@ -73,6 +76,38 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
       set({ isLoading: false });
     }
   },
+
+  deleteContribution: async (contributionId: string, groupId: string) => {
+    set({ isLoading: true });
+    try {
+      await deleteContributionApi(contributionId);
+      set((state) => ({
+        contributions: state.contributions.filter(
+          (c) => c.id !== contributionId,
+        ),
+      }));
+      await useGroupsStore.getState().fetchGroup(groupId);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateContribution: async (
+    contributionId: string,
+    groupId: string,
+    updates: { amount?: number; note?: string },
+  ) => {
+    set({ isLoading: true });
+    try {
+      await updateContributionApi(contributionId, updates);
+      // Refresh contributions and group data
+      const data = await fetchGroupContributions(groupId);
+      set({ contributions: data });
+      await useGroupsStore.getState().fetchGroup(groupId);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 }));
 
 // ─── Achievement checking logic ───────────────────────────────────────────────
@@ -83,51 +118,72 @@ async function checkAndUnlockAchievements(
   currentAmount: number,
   streakDays: number,
   individualGoal: number,
-  set: any
+  set: any,
 ) {
   const toUnlock: string[] = [];
 
   // Check first contribution
   const { data: existingContribs } = await supabase
-    .from('contributions')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('group_id', groupId);
+    .from("contributions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("group_id", groupId);
 
-  if (existingContribs?.length === 1) toUnlock.push('first_contribution');
+  if (existingContribs?.length === 1) toUnlock.push("first_contribution");
 
   // Streak achievements
-  if (streakDays + 1 >= 7) toUnlock.push('streak_7');
-  else if (streakDays + 1 >= 3) toUnlock.push('streak_3');
-  if (streakDays + 1 >= 30) toUnlock.push('streak_30');
+  if (streakDays + 1 >= 7) toUnlock.push("streak_7");
+  else if (streakDays + 1 >= 3) toUnlock.push("streak_3");
+  if (streakDays + 1 >= 30) toUnlock.push("streak_30");
 
   // Big saver
-  if (amount >= 100) toUnlock.push('big_saver');
+  if (amount >= 100) toUnlock.push("big_saver");
 
   // First to 50%
   const newAmount = currentAmount + amount;
-  if (individualGoal > 0 && newAmount / individualGoal >= 0.5 && currentAmount / individualGoal < 0.5) {
+  if (
+    individualGoal > 0 &&
+    newAmount / individualGoal >= 0.5 &&
+    currentAmount / individualGoal < 0.5
+  ) {
     // Check if anyone else in the group has reached 50% before
     const { data: otherMembers } = await supabase
-      .from('group_members')
-      .select('current_amount, individual_goal')
-      .eq('group_id', groupId)
-      .neq('user_id', userId);
+      .from("group_members")
+      .select("current_amount, individual_goal")
+      .eq("group_id", groupId)
+      .neq("user_id", userId);
 
     const someoneElseAt50 = otherMembers?.some(
-      m => m.current_amount / (m.individual_goal || 1) >= 0.5
+      (m) => m.current_amount / (m.individual_goal || 1) >= 0.5,
     );
-    if (!someoneElseAt50) toUnlock.push('first_50_percent');
+    if (!someoneElseAt50) toUnlock.push("first_50_percent");
   }
 
   // Goal completed
-  if (individualGoal > 0 && newAmount >= individualGoal) toUnlock.push('goal_completed');
+  if (individualGoal > 0 && newAmount >= individualGoal)
+    toUnlock.push("goal_completed");
 
   // Unlock achievements and notify
+  const { settings } = useSettingsStore.getState();
   for (const achievementType of toUnlock) {
     try {
       await unlockAchievement(userId, groupId, achievementType);
       set({ lastUnlockedAchievement: achievementType });
+
+      // Fire local notification if enabled
+      if (settings.achievement_notifications) {
+        if (achievementType === "goal_completed") {
+          // Find the group name for a richer notification
+          const group = useGroupsStore
+            .getState()
+            .groups.find((g) => g.id === groupId);
+          notifyGoalCompleted(group?.name || "", settings.language).catch(
+            () => {},
+          );
+        } else {
+          notifyAchievement(achievementType, settings.language).catch(() => {});
+        }
+      }
     } catch {
       // Already unlocked, ignore
     }

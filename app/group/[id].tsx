@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { enUS, es, fr } from "date-fns/locale";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Share,
@@ -28,11 +30,20 @@ import Svg, {
 import { AchievementModal } from "../../src/components/AchievementModal";
 import { MemberRow } from "../../src/components/MemberRow";
 import { Button, Card, StatusPill } from "../../src/components/UI";
-import { Colors, FontSize, Radius, Spacing } from "../../src/constants";
+import {
+  Colors,
+  FontSize,
+  Radius,
+  Spacing,
+  TRIP_ICONS,
+} from "../../src/constants";
+import { CURRENCIES, formatCurrency } from "../../src/lib/currency";
+import { getFrequencyPeriodLabel, t } from "../../src/lib/i18n";
 import { subscribeToGroup } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
 import { useContributionsStore } from "../../src/store/contributionsStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
 
 type TabType = "members" | "ranking" | "history";
@@ -41,20 +52,48 @@ export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuthStore();
-  const { currentGroup, fetchGroup, isLoading } = useGroupsStore();
+  const { settings } = useSettingsStore();
+  const lang = settings.language || "es";
+  const {
+    currentGroup,
+    fetchGroup,
+    isLoading,
+    leaveGroup,
+    deleteGroup,
+    updateGroup,
+  } = useGroupsStore();
   const {
     addContribution,
     contributions,
     fetchContributions,
+    deleteContribution,
+    updateContribution,
     isLoading: contribLoading,
     lastUnlockedAchievement,
     clearLastAchievement,
   } = useContributionsStore();
 
+  const { updateMemberGoal } = useGroupsStore();
+
   const [activeTab, setActiveTab] = useState<TabType>("members");
   const [showContribModal, setShowContribModal] = useState(false);
   const [contribAmount, setContribAmount] = useState("");
   const [contribNote, setContribNote] = useState("");
+  const [showEditGoalModal, setShowEditGoalModal] = useState(false);
+  const [editGoalAmount, setEditGoalAmount] = useState("");
+  const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
+
+  // Phase 2 state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [editGroupEmoji, setEditGroupEmoji] = useState(TRIP_ICONS[0]);
+  const [editGroupGoal, setEditGroupGoal] = useState("");
+  const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
+  const [showEditContribModal, setShowEditContribModal] = useState(false);
+  const [editContribId, setEditContribId] = useState<string | null>(null);
+  const [editContribAmount, setEditContribAmount] = useState("");
+  const [editContribNote, setEditContribNote] = useState("");
 
   useEffect(() => {
     if (id) {
@@ -85,7 +124,7 @@ export default function GroupScreen() {
   const handleAddContribution = async () => {
     const amount = parseFloat(contribAmount);
     if (!amount || amount <= 0) {
-      Alert.alert("Monto inválido", "Ingresa un monto mayor a $0");
+      Alert.alert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang));
       return;
     }
     try {
@@ -95,7 +134,10 @@ export default function GroupScreen() {
       setContribNote("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
-      Alert.alert("Error", error.message ?? "No se pudo registrar el aporte");
+      Alert.alert(
+        t("error", lang),
+        error.message ?? t("couldNotRegister", lang),
+      );
     }
   };
 
@@ -103,15 +145,171 @@ export default function GroupScreen() {
     if (!currentGroup) return;
     try {
       await Share.share({
-        message: `¡Únete a nuestro grupo de ahorro "${currentGroup.name}" en GoalCrew!\n\nCódigo: ${currentGroup.invite_code}\n\nDescarga la app: https://goalcrew.app`,
-        title: `Únete a ${currentGroup.name}`,
+        message: `${t("joinShareMessage", lang)} "${currentGroup.name}" en GoalCrew!\n\n${t("code", lang)}: ${currentGroup.invite_code}\n\n${t("downloadApp", lang)} https://goalcrew.app`,
+        title: `${t("joinShareTitle", lang)} ${currentGroup.name}`,
       });
     } catch {
       // Copy to clipboard fallback
       await Clipboard.setStringAsync(currentGroup.invite_code);
-      Alert.alert("Código copiado", `Código: ${currentGroup.invite_code}`);
+      Alert.alert(
+        t("codeCopied", lang),
+        `${t("code", lang)}: ${currentGroup.invite_code}`,
+      );
     }
   };
+
+  const handleEditGoal = () => {
+    if (!myMember) return;
+    setEditGoalAmount(String(myMember.individual_goal));
+    setShowEditGoalModal(true);
+  };
+
+  const handleSaveGoal = async () => {
+    const amount = parseFloat(editGoalAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang));
+      return;
+    }
+    setIsUpdatingGoal(true);
+    try {
+      await updateMemberGoal(id!, amount);
+      setShowEditGoalModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      Alert.alert(t("error", lang), error.message ?? t("couldNotUpdate", lang));
+    } finally {
+      setIsUpdatingGoal(false);
+    }
+  };
+
+  // ─── Phase 2 handlers ─────────────────────────────────────────────────
+
+  const isCreator = currentGroup?.created_by === user?.id;
+
+  const handleLeaveGroup = () => {
+    Alert.alert(t("leaveGroup", lang), t("leaveGroupConfirm", lang), [
+      { text: t("cancel", lang), style: "cancel" },
+      {
+        text: t("leave", lang),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await leaveGroup(id!);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.replace("/(tabs)");
+          } catch (error: any) {
+            if (error.message === "CREATOR_CANNOT_LEAVE") {
+              Alert.alert(t("error", lang), t("creatorCannotLeave", lang));
+            } else {
+              Alert.alert(t("error", lang), error.message);
+            }
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteGroup = () => {
+    Alert.alert(t("deleteGroup", lang), t("deleteGroupConfirm", lang), [
+      { text: t("cancel", lang), style: "cancel" },
+      {
+        text: t("delete", lang),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteGroup(id!);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.replace("/(tabs)");
+          } catch (error: any) {
+            Alert.alert(t("error", lang), error.message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleOpenEditGroup = () => {
+    if (!currentGroup) return;
+    setEditGroupName(currentGroup.name);
+    setEditGroupEmoji(
+      TRIP_ICONS.find((i) => i.name === currentGroup.emoji) || TRIP_ICONS[0],
+    );
+    setEditGroupGoal(String(currentGroup.goal_amount));
+    setShowSettingsModal(false);
+    setShowEditGroupModal(true);
+  };
+
+  const handleSaveGroup = async () => {
+    if (!editGroupName.trim()) {
+      Alert.alert(t("error", lang), t("nameRequired", lang));
+      return;
+    }
+    setIsUpdatingGroup(true);
+    try {
+      await updateGroup(id!, {
+        name: editGroupName.trim(),
+        emoji: editGroupEmoji.name,
+        goal_amount: parseFloat(editGroupGoal) || currentGroup!.goal_amount,
+      });
+      setShowEditGroupModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      Alert.alert(t("error", lang), error.message);
+    } finally {
+      setIsUpdatingGroup(false);
+    }
+  };
+
+  const handleDeleteContribution = (contribId: string) => {
+    Alert.alert(
+      t("deleteContribution", lang),
+      t("deleteContributionConfirm", lang),
+      [
+        { text: t("cancel", lang), style: "cancel" },
+        {
+          text: t("delete", lang),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteContribution(contribId, id!);
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+            } catch (error: any) {
+              Alert.alert(t("error", lang), error.message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleOpenEditContrib = (contrib: any) => {
+    setEditContribId(contrib.id);
+    setEditContribAmount(String(contrib.amount));
+    setEditContribNote(contrib.note ?? "");
+    setShowEditContribModal(true);
+  };
+
+  const handleSaveContrib = async () => {
+    const amount = parseFloat(editContribAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang));
+      return;
+    }
+    try {
+      await updateContribution(editContribId!, id!, {
+        amount,
+        note: editContribNote || undefined,
+      });
+      setShowEditContribModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      Alert.alert(t("error", lang), error.message);
+    }
+  };
+
+  const isCustomDivision = currentGroup?.division_type === "custom";
 
   if (!currentGroup) {
     return (
@@ -119,16 +317,28 @@ export default function GroupScreen() {
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{ color: Colors.text2 }}>Cargando grupo…</Text>
+          <Text style={{ color: Colors.text2 }}>{t("loadingGroup", lang)}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const myMember = currentGroup.members?.find((m) => m.user_id === user?.id);
-  const sortedByRanking = [...(currentGroup.members ?? [])].sort(
-    (a, b) => b.total_points - a.total_points,
+  const myMember = useMemo(
+    () => currentGroup.members?.find((m) => m.user_id === user?.id),
+    [currentGroup.members, user?.id],
   );
+  const sortedByRanking = useMemo(
+    () =>
+      [...(currentGroup.members ?? [])].sort(
+        (a, b) => b.total_points - a.total_points,
+      ),
+    [currentGroup.members],
+  );
+
+  // Completed state
+  const isGoalCompleted = currentGroup.progress_percent >= 100;
+  const isDeadlinePassed = new Date(currentGroup.deadline) < new Date();
+  const isGroupFinished = isGoalCompleted || isDeadlinePassed;
 
   // Ring progress
   const pct = Math.min(100, currentGroup.progress_percent);
@@ -136,10 +346,20 @@ export default function GroupScreen() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - pct / 100);
 
-  const deadlineFormatted = format(
-    parseISO(currentGroup.deadline),
-    "d 'de' MMMM, yyyy",
-    { locale: es },
+  const dateLocale = useMemo(
+    () => (lang === "en" ? enUS : lang === "fr" ? fr : es),
+    [lang],
+  );
+  const currencySymbol = CURRENCIES[settings.currency]?.symbol || "$";
+
+  const deadlineFormatted = useMemo(
+    () =>
+      format(
+        parseISO(currentGroup.deadline),
+        lang === "es" ? "d 'de' MMMM, yyyy" : "d MMMM, yyyy",
+        { locale: dateLocale },
+      ),
+    [currentGroup.deadline, lang, dateLocale],
   );
 
   return (
@@ -157,14 +377,34 @@ export default function GroupScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push("/(tabs)");
+              }
+            }}
             style={styles.backBtn}
           >
-            <Text style={styles.backText}>← Mis metas</Text>
+            <Text style={styles.backText}>{t("backToGoals", lang)}</Text>
           </TouchableOpacity>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.groupEmoji}>{currentGroup.emoji}</Text>
+              <View style={styles.groupIconContainer}>
+                {(() => {
+                  const groupIcon =
+                    TRIP_ICONS.find(
+                      (icon) => icon.name === currentGroup.emoji,
+                    ) || TRIP_ICONS[0];
+                  return (
+                    <Ionicons
+                      name={groupIcon.name as any}
+                      size={32}
+                      color={groupIcon.color}
+                    />
+                  );
+                })()}
+              </View>
               <Text style={styles.groupName}>{currentGroup.name}</Text>
               <View style={styles.headerPills}>
                 <View style={styles.pill}>
@@ -194,16 +434,76 @@ export default function GroupScreen() {
                 </View>
               </View>
             </View>
-            <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-              <View style={styles.shareBtnContent}>
-                <Ionicons name="link-outline" size={16} color="#FFFFFF" />
-                <Text style={[styles.shareBtnText, { marginLeft: 6 }]}>
-                  Invitar
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
+                <View style={styles.shareBtnContent}>
+                  <Ionicons name="link-outline" size={16} color="#FFFFFF" />
+                  <Text style={[styles.shareBtnText, { marginLeft: 6 }]}>
+                    {t("code", lang)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowSettingsModal(true)}
+                style={[styles.shareBtn, { paddingHorizontal: Spacing.sm }]}
+              >
+                <Ionicons name="ellipsis-vertical" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+
+        {/* Completed / Deadline banner */}
+        {isGroupFinished && (
+          <View
+            style={{ paddingHorizontal: Spacing.xl, marginBottom: Spacing.md }}
+          >
+            <Card
+              style={{
+                borderColor: isGoalCompleted ? Colors.green : Colors.yellow,
+                borderWidth: 1,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: Spacing.md,
+                }}
+              >
+                <Ionicons
+                  name={isGoalCompleted ? "checkmark-circle" : "time"}
+                  size={28}
+                  color={isGoalCompleted ? Colors.green : Colors.yellow}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: FontSize.lg,
+                      fontWeight: "900",
+                      color: isGoalCompleted ? Colors.green : Colors.yellow,
+                    }}
+                  >
+                    {isGoalCompleted
+                      ? t("goalCompleted", lang)
+                      : t("deadlineReached", lang)}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: FontSize.sm,
+                      color: Colors.text2,
+                      marginTop: 2,
+                    }}
+                  >
+                    {isGoalCompleted
+                      ? t("groupCompletedDesc", lang)
+                      : t("deadlineReachedDesc", lang)}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          </View>
+        )}
 
         {/* Progress ring + stats */}
         <View
@@ -249,27 +549,42 @@ export default function GroupScreen() {
                 </Svg>
                 <View style={styles.ringLabel}>
                   <Text style={styles.ringPct}>{pct}%</Text>
-                  <Text style={styles.ringSubtitle}>grupal</Text>
+                  <Text style={styles.ringSubtitle}>
+                    {t("groupProgress", lang)}
+                  </Text>
                 </View>
               </View>
 
               {/* Stats */}
               <View style={styles.statsCol}>
                 <StatRow
-                  label="Total reunido"
-                  value={`$${currentGroup.total_saved.toFixed(0)}`}
+                  label={t("totalCollected", lang)}
+                  value={formatCurrency(
+                    currentGroup.total_saved,
+                    settings.currency,
+                  )}
                   color={Colors.green}
                 />
                 <StatRow
-                  label="Meta total"
-                  value={`$${currentGroup.total_goal.toFixed(0)}`}
+                  label={t("totalGoal", lang)}
+                  value={formatCurrency(
+                    currentGroup.total_goal,
+                    settings.currency,
+                  )}
                 />
                 <StatRow
-                  label="Faltan"
-                  value={`$${(currentGroup.total_goal - currentGroup.total_saved).toFixed(0)}`}
+                  label={t("remaining", lang)}
+                  value={formatCurrency(
+                    currentGroup.total_goal - currentGroup.total_saved,
+                    settings.currency,
+                  )}
                   color={Colors.yellow}
                 />
-                <StatRow label="Fecha límite" value={deadlineFormatted} small />
+                <StatRow
+                  label={t("deadline", lang)}
+                  value={deadlineFormatted}
+                  small
+                />
               </View>
             </View>
 
@@ -277,11 +592,40 @@ export default function GroupScreen() {
             {myMember && (
               <View style={styles.myProgress}>
                 <View style={styles.myProgressHeader}>
-                  <Text style={styles.myProgressLabel}>Tu progreso</Text>
-                  <Text style={styles.myProgressValue}>
-                    ${myMember.current_amount.toFixed(0)} / $
-                    {myMember.individual_goal.toFixed(0)}
+                  <Text style={styles.myProgressLabel}>
+                    {t("yourProgress", lang)}
                   </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Text style={styles.myProgressValue}>
+                      {formatCurrency(
+                        myMember.current_amount,
+                        settings.currency,
+                      )}{" "}
+                      /{" "}
+                      {formatCurrency(
+                        myMember.individual_goal,
+                        settings.currency,
+                      )}
+                    </Text>
+                    {isCustomDivision && (
+                      <TouchableOpacity
+                        onPress={handleEditGoal}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons
+                          name="pencil"
+                          size={14}
+                          color={Colors.accent2}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
                 <View style={styles.progressTrack}>
                   <LinearGradient
@@ -299,12 +643,17 @@ export default function GroupScreen() {
                 <View style={styles.myProgressFooter}>
                   <Text style={styles.myProgressHint}>
                     <Ionicons name="wallet" size={12} color={Colors.text2} />{" "}
-                    Ahorra ${currentGroup.per_period_needed.toFixed(2)} cada{" "}
-                    {currentGroup.frequency === "daily"
-                      ? "día"
-                      : currentGroup.frequency === "weekly"
-                        ? "semana"
-                        : "mes"}
+                    {t("saveEvery", lang)}{" "}
+                    {formatCurrency(
+                      currentGroup.per_period_needed,
+                      settings.currency,
+                    )}{" "}
+                    {t("every", lang)}{" "}
+                    {getFrequencyPeriodLabel(
+                      currentGroup.frequency,
+                      lang,
+                      currentGroup.custom_frequency_days,
+                    )}
                   </Text>
                   {myMember.streak_days > 0 && (
                     <View style={styles.streakBadgeContainer}>
@@ -325,9 +674,9 @@ export default function GroupScreen() {
           <View style={styles.tabBar}>
             {(["members", "ranking", "history"] as TabType[]).map((tab) => {
               const labels = {
-                members: { icon: "people", text: "Miembros" },
-                ranking: { icon: "trophy", text: "Ranking" },
-                history: { icon: "list", text: "Historial" },
+                members: { icon: "people", text: t("members", lang) },
+                ranking: { icon: "trophy", text: t("ranking", lang) },
+                history: { icon: "list", text: t("history", lang) },
               };
               const tabInfo = labels[tab];
               return (
@@ -371,7 +720,7 @@ export default function GroupScreen() {
             {activeTab === "ranking" && (
               <>
                 <Text style={styles.rankingSubtitle}>
-                  Puntos acumulados esta semana
+                  {t("pointsAccumulated", lang)}
                 </Text>
                 {sortedByRanking.map((member, idx) => (
                   <MemberRow
@@ -389,11 +738,11 @@ export default function GroupScreen() {
               <>
                 {contributions.length === 0 ? (
                   <Text style={styles.emptyText}>
-                    Aún no hay aportes registrados
+                    {t("noContributions", lang)}
                   </Text>
                 ) : (
-                  contributions.map((c) => (
-                    <View key={c.id} style={styles.historyItem}>
+                  contributions.map((c, index) => (
+                    <View key={`${c.id}-${index}`} style={styles.historyItem}>
                       <View
                         style={[
                           styles.historyDot,
@@ -403,19 +752,43 @@ export default function GroupScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.historyName}>
                           <Text style={{ fontWeight: "800" }}>
-                            {c.user?.name ?? "Alguien"}
+                            {c.user?.name ?? t("someone", lang)}
                           </Text>
-                          {` ahorró $${c.amount}`}
+                          {` ${t("saved", lang)} ${formatCurrency(c.amount, settings.currency)}`}
                         </Text>
                         {c.note && (
                           <Text style={styles.historyNote}>"{c.note}"</Text>
                         )}
                         <Text style={styles.historyDate}>
                           {format(new Date(c.created_at), "d MMM · HH:mm", {
-                            locale: es,
+                            locale: dateLocale,
                           })}
                         </Text>
                       </View>
+                      {c.user_id === user?.id && !isGroupFinished && (
+                        <View style={styles.historyActions}>
+                          <TouchableOpacity
+                            onPress={() => handleOpenEditContrib(c)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons
+                              name="pencil"
+                              size={16}
+                              color={Colors.accent2}
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteContribution(c.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons
+                              name="trash"
+                              size={16}
+                              color={Colors.red}
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   ))
                 )}
@@ -425,13 +798,15 @@ export default function GroupScreen() {
         </View>
 
         {/* Register contribution CTA */}
-        <View style={styles.ctaSection}>
-          <Button
-            title="Registrar mi aporte"
-            onPress={() => setShowContribModal(true)}
-            style={{ overflow: "hidden" }}
-          />
-        </View>
+        {!isGroupFinished && (
+          <View style={styles.ctaSection}>
+            <Button
+              title={t("registerContribution", lang)}
+              onPress={() => setShowContribModal(true)}
+              style={{ overflow: "hidden" }}
+            />
+          </View>
+        )}
       </ScrollView>
 
       {/* Achievement Modal */}
@@ -447,65 +822,369 @@ export default function GroupScreen() {
         transparent
         onRequestClose={() => setShowContribModal(false)}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            style={styles.modalBg}
+            activeOpacity={1}
+            onPress={() => setShowContribModal(false)}
+          >
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalTitleContent}>
+                <Ionicons name="wallet-outline" size={20} color={Colors.text} />
+                <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
+                  {t("registerContribTitle", lang)}
+                </Text>
+              </View>
+              <Text style={styles.modalSubtitle}>
+                {currentGroup.name} · {t("goal", lang)}:{" "}
+                {formatCurrency(
+                  myMember?.individual_goal || 0,
+                  settings.currency,
+                )}
+              </Text>
+
+              <View style={styles.amountWrap}>
+                <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="0"
+                  placeholderTextColor={Colors.text3}
+                  value={contribAmount}
+                  onChangeText={setContribAmount}
+                  keyboardType="numeric"
+                  autoFocus
+                  maxLength={10}
+                />
+              </View>
+
+              {/* Quick amounts */}
+              <View style={styles.quickAmounts}>
+                {[25, 50, 75, 100].map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setContribAmount(String(v))}
+                    style={styles.quickBtn}
+                  >
+                    <Text style={styles.quickBtnText}>
+                      {currencySymbol}
+                      {v}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TextInput
+                style={styles.noteInput}
+                placeholder={t("noteOptional", lang)}
+                placeholderTextColor={Colors.text3}
+                value={contribNote}
+                onChangeText={setContribNote}
+              />
+
+              <Button
+                title={t("confirmContribution", lang)}
+                onPress={handleAddContribution}
+                isLoading={contribLoading}
+              />
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Goal Modal (custom division only) */}
+      <Modal
+        visible={showEditGoalModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditGoalModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            style={styles.modalBg}
+            activeOpacity={1}
+            onPress={() => setShowEditGoalModal(false)}
+          >
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalTitleContent}>
+                <Ionicons name="create-outline" size={20} color={Colors.text} />
+                <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
+                  {t("editMyGoal", lang)}
+                </Text>
+              </View>
+              <Text style={styles.modalSubtitle}>
+                {t("editGoalDescription", lang)}
+              </Text>
+
+              <View style={styles.amountWrap}>
+                <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="0"
+                  placeholderTextColor={Colors.text3}
+                  value={editGoalAmount}
+                  onChangeText={setEditGoalAmount}
+                  keyboardType="numeric"
+                  autoFocus
+                />
+              </View>
+
+              <Button
+                title={t("saveGoal", lang)}
+                onPress={handleSaveGoal}
+                isLoading={isUpdatingGoal}
+              />
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Settings Modal */}
+      <Modal
+        visible={showSettingsModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
         <TouchableOpacity
           style={styles.modalBg}
           activeOpacity={1}
-          onPress={() => setShowContribModal(false)}
+          onPress={() => setShowSettingsModal(false)}
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <View style={styles.modalTitleContent}>
-              <Ionicons name="wallet-outline" size={20} color={Colors.text} />
+              <Ionicons name="settings-outline" size={20} color={Colors.text} />
               <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
-                Registrar aporte
+                {t("groupSettings", lang)}
               </Text>
             </View>
-            <Text style={styles.modalSubtitle}>
-              {currentGroup.name} · Meta: $
-              {myMember?.individual_goal.toFixed(0)}
-            </Text>
 
-            <View style={styles.amountWrap}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={styles.amountInput}
-                placeholder="0"
-                placeholderTextColor={Colors.text3}
-                value={contribAmount}
-                onChangeText={setContribAmount}
-                keyboardType="numeric"
-                autoFocus
-              />
-            </View>
+            {isCreator && (
+              <TouchableOpacity
+                style={styles.settingsOption}
+                onPress={handleOpenEditGroup}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={20}
+                  color={Colors.accent2}
+                />
+                <Text style={styles.settingsOptionText}>
+                  {t("editGroup", lang)}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={Colors.text3}
+                />
+              </TouchableOpacity>
+            )}
 
-            {/* Quick amounts */}
-            <View style={styles.quickAmounts}>
-              {[25, 50, 75, 100].map((v) => (
+            {!isCreator && (
+              <TouchableOpacity
+                style={styles.settingsOption}
+                onPress={() => {
+                  setShowSettingsModal(false);
+                  handleLeaveGroup();
+                }}
+              >
+                <Ionicons
+                  name="log-out-outline"
+                  size={20}
+                  color={Colors.yellow}
+                />
+                <Text style={styles.settingsOptionText}>
+                  {t("leaveGroup", lang)}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={Colors.text3}
+                />
+              </TouchableOpacity>
+            )}
+
+            {isCreator && (
+              <View style={styles.dangerZone}>
+                <Text style={styles.dangerZoneLabel}>
+                  {t("dangerZone", lang)}
+                </Text>
                 <TouchableOpacity
-                  key={v}
-                  onPress={() => setContribAmount(String(v))}
-                  style={styles.quickBtn}
+                  style={[
+                    styles.settingsOption,
+                    { borderColor: "rgba(255,59,48,0.2)" },
+                  ]}
+                  onPress={() => {
+                    setShowSettingsModal(false);
+                    handleDeleteGroup();
+                  }}
                 >
-                  <Text style={styles.quickBtnText}>${v}</Text>
+                  <Ionicons name="trash-outline" size={20} color={Colors.red} />
+                  <Text
+                    style={[styles.settingsOptionText, { color: Colors.red }]}
+                  >
+                    {t("deleteGroup", lang)}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={Colors.text3}
+                  />
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              style={styles.noteInput}
-              placeholder="Nota (opcional) — ej. Ahorro de quincena"
-              placeholderTextColor={Colors.text3}
-              value={contribNote}
-              onChangeText={setContribNote}
-            />
-
-            <Button
-              title="Confirmar aporte"
-              onPress={handleAddContribution}
-              isLoading={contribLoading}
-            />
+              </View>
+            )}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Edit Group Modal */}
+      <Modal
+        visible={showEditGroupModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditGroupModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            style={styles.modalBg}
+            activeOpacity={1}
+            onPress={() => setShowEditGroupModal(false)}
+          >
+            <View
+              style={styles.modalSheet}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.modalHandle} />
+              <View style={styles.modalTitleContent}>
+                <Ionicons name="create-outline" size={20} color={Colors.text} />
+                <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
+                  {t("editGroup", lang)}
+                </Text>
+              </View>
+
+              <Text style={styles.inputLabel}>{t("groupName", lang)}</Text>
+              <TextInput
+                style={styles.noteInput}
+                value={editGroupName}
+                onChangeText={setEditGroupName}
+                placeholder={t("groupName", lang)}
+                placeholderTextColor={Colors.text3}
+                maxLength={50}
+              />
+
+              <Text style={styles.inputLabel}>{t("icon", lang)}</Text>
+              <View style={styles.emojiGrid}>
+                {TRIP_ICONS.map((icon) => (
+                  <TouchableOpacity
+                    key={icon.name}
+                    onPress={() => setEditGroupEmoji(icon)}
+                    style={[
+                      styles.emojiBtn,
+                      editGroupEmoji.name === icon.name &&
+                        styles.emojiBtnActive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={icon.name as any}
+                      size={22}
+                      color={
+                        editGroupEmoji.name === icon.name
+                          ? Colors.accent2
+                          : Colors.text2
+                      }
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>{t("totalGoal", lang)}</Text>
+              <View style={styles.amountWrap}>
+                <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="0"
+                  placeholderTextColor={Colors.text3}
+                  value={editGroupGoal}
+                  onChangeText={setEditGroupGoal}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <Button
+                title={t("saveChanges", lang)}
+                onPress={handleSaveGroup}
+                isLoading={isUpdatingGroup}
+              />
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Contribution Modal */}
+      <Modal
+        visible={showEditContribModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditContribModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity
+            style={styles.modalBg}
+            activeOpacity={1}
+            onPress={() => setShowEditContribModal(false)}
+          >
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalTitleContent}>
+                <Ionicons name="pencil-outline" size={20} color={Colors.text} />
+                <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
+                  {t("editContribution", lang)}
+                </Text>
+              </View>
+
+              <View style={styles.amountWrap}>
+                <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="0"
+                  placeholderTextColor={Colors.text3}
+                  value={editContribAmount}
+                  onChangeText={setEditContribAmount}
+                  keyboardType="numeric"
+                  autoFocus
+                />
+              </View>
+
+              <TextInput
+                style={styles.noteInput}
+                placeholder={t("noteOptional", lang)}
+                placeholderTextColor={Colors.text3}
+                value={editContribNote}
+                onChangeText={setEditContribNote}
+              />
+
+              <Button
+                title={t("saveChanges", lang)}
+                onPress={handleSaveContrib}
+                isLoading={contribLoading}
+              />
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -542,7 +1221,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-  groupEmoji: { fontSize: 36, marginBottom: 6 },
+  groupIconContainer: { marginBottom: 6, alignItems: "center" },
   groupName: {
     fontSize: FontSize.xxl,
     fontWeight: "900",
@@ -763,5 +1442,67 @@ const styles = StyleSheet.create({
   modalTitleContent: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  historyActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginLeft: Spacing.sm,
+  },
+  settingsOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surface2,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+  },
+  settingsOptionText: {
+    flex: 1,
+    fontSize: FontSize.base,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  dangerZone: {
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.surface3,
+  },
+  dangerZoneLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: "800",
+    color: Colors.red,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  inputLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+    color: Colors.text2,
+    marginBottom: 4,
+  },
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  emojiBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface2,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+  },
+  emojiBtnActive: {
+    borderColor: Colors.accent2,
+    backgroundColor: Colors.surface,
   },
 });

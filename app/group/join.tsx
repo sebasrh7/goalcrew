@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -12,33 +13,66 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../../src/components/UI";
 import { Colors, FontSize, Radius, Spacing } from "../../src/constants";
+import { formatCurrency } from "../../src/lib/currency";
+import { t } from "../../src/lib/i18n";
+import { peekGroupByCode } from "../../src/lib/supabase";
 import { useGroupsStore } from "../../src/store/groupsStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
 
 export default function JoinGroupScreen() {
   const router = useRouter();
   const { joinGroup, isLoading } = useGroupsStore();
+  const { settings } = useSettingsStore();
+  const lang = settings.language;
   const [code, setCode] = useState("");
+  const [customGoalStep, setCustomGoalStep] = useState(false);
+  const [customGoalAmount, setCustomGoalAmount] = useState("");
+  const [groupInfo, setGroupInfo] = useState<{
+    name: string;
+    goal_amount: number;
+  } | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
 
   const handleJoin = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 6) {
-      Alert.alert(
-        "Código inválido",
-        "Ingresa el código completo de invitación.",
-      );
+      Alert.alert(t("invalidCode", lang), t("enterFullCode", lang));
       return;
     }
-    try {
-      await joinGroup(trimmed);
-      Alert.alert(
-        "¡Bienvenido! 🎉",
-        "Te uniste al grupo. ¡Empieza a ahorrar!",
-        [{ text: "¡Vamos!", onPress: () => router.replace("/(tabs)") }],
-      );
-    } catch (error: any) {
-      Alert.alert("Error", error.message ?? "No se pudo unir al grupo.");
+
+    // First check if the group uses custom division
+    if (!customGoalStep) {
+      setIsChecking(true);
+      try {
+        const group = await peekGroupByCode(trimmed);
+
+        if (group.division_type === "custom") {
+          setGroupInfo({ name: group.name, goal_amount: group.goal_amount });
+          setCustomGoalAmount(String(group.goal_amount));
+          setCustomGoalStep(true);
+          setIsChecking(false);
+          return;
+        }
+      } catch {
+        Alert.alert(t("error", lang), t("invalidCode", lang));
+        setIsChecking(false);
+        return;
+      }
+      setIsChecking(false);
     }
-  };
+
+    try {
+      const individualGoal = customGoalStep
+        ? parseFloat(customGoalAmount) || undefined
+        : undefined;
+      await joinGroup(trimmed, individualGoal);
+      Alert.alert(t("welcome", lang), t("joinedGroup", lang), [
+        { text: t("letsGo", lang), onPress: () => router.replace("/(tabs)") },
+      ]);
+    } catch (error: any) {
+      Alert.alert(t("error", lang), error.message ?? t("couldNotJoin", lang));
+    }
+  };;
 
   const formatCode = (text: string) => {
     const clean = text
@@ -56,18 +90,21 @@ export default function JoinGroupScreen() {
       />
 
       <View style={styles.content}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Atrás</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)")}
+          style={styles.backBtn}
+        >
+          <Text style={styles.backText}>{t("backToHome", lang)}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.emoji}>🔗</Text>
-        <Text style={styles.title}>Unirse a un grupo</Text>
-        <Text style={styles.subtitle}>
-          Pídele el código de invitación a quien creó el grupo
-        </Text>
+        <View style={styles.iconContainer}>
+          <Ionicons name="link" size={48} color={Colors.accent2} />
+        </View>
+        <Text style={styles.title}>{t("joinGroup", lang)}</Text>
+        <Text style={styles.subtitle}>{t("askForCode", lang)}</Text>
 
         <View style={styles.inputCard}>
-          <Text style={styles.label}>Código de invitación</Text>
+          <Text style={styles.label}>{t("inviteCode", lang)}</Text>
           <TextInput
             style={styles.codeInput}
             placeholder="CANC25XK"
@@ -79,31 +116,49 @@ export default function JoinGroupScreen() {
             maxLength={8}
             textAlign="center"
           />
-          <Text style={styles.codeHint}>{code.length}/8 caracteres</Text>
+          <Text style={styles.codeHint}>
+            {code.length}/8 {t("characters", lang)}
+          </Text>
         </View>
+
+        {/* Custom goal step - shown when group uses custom division */}
+        {customGoalStep && groupInfo && (
+          <View style={styles.inputCard}>
+            <Text style={styles.label}>{t("customGoalJoinTitle", lang)}</Text>
+            <Text style={[styles.codeHint, { marginBottom: 8 }]}>
+              {t("customGoalJoinDesc", lang)
+                .replace("{group}", groupInfo.name)
+                .replace(
+                  "{amount}",
+                  formatCurrency(groupInfo.goal_amount, settings.currency),
+                )}
+            </Text>
+            <TextInput
+              style={styles.codeInput}
+              placeholder={String(groupInfo.goal_amount)}
+              placeholderTextColor={Colors.text3}
+              value={customGoalAmount}
+              onChangeText={setCustomGoalAmount}
+              keyboardType="numeric"
+              textAlign="center"
+            />
+          </View>
+        )}
 
         <Button
           title={
-            <>
-              <Ionicons
-                name="rocket"
-                size={20}
-                color="#fff"
-                style={{ marginRight: 8 }}
-              />
-              Unirme al grupo
-            </>
+            customGoalStep ? t("joinWithMyGoal", lang) : t("joinMyGroup", lang)
           }
           onPress={handleJoin}
-          isLoading={isLoading}
+          isLoading={isLoading || isChecking}
           disabled={code.length < 6}
         />
 
-        <Text style={styles.or}>— o —</Text>
+        <Text style={styles.or}>{t("or", lang)}</Text>
 
         <TouchableOpacity style={styles.scanBtn}>
-          <Text style={styles.scanBtnText}>📷 Escanear código QR</Text>
-          <Text style={styles.scanBtnSub}>Próximamente</Text>
+          <Text style={styles.scanBtnText}>{t("scanQR", lang)}</Text>
+          <Text style={styles.scanBtnSub}>{t("comingSoon", lang)}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -118,6 +173,10 @@ const styles = StyleSheet.create({
     color: Colors.accent2,
     fontWeight: "700",
     fontSize: FontSize.base,
+  },
+  iconContainer: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
   },
   emoji: { fontSize: 64, textAlign: "center", marginBottom: Spacing.lg },
   title: {
@@ -175,6 +234,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.surface3,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   scanBtnText: {
     fontSize: FontSize.base,

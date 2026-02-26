@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
@@ -14,37 +15,45 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../../src/components/UI";
 import { Colors, FontSize, Spacing } from "../../src/constants";
+import { getCurrentLanguage, t } from "../../src/lib/i18n";
 import { supabase } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
 
 const { width } = Dimensions.get("window");
 
-const SLIDES = [
-  {
-    id: "1",
-    emoji: "✈️",
-    title: "Viaja con\ntu crew",
-    description:
-      "Ahorra en grupo, mantente motivado y llega al destino que siempre soñaron juntos.",
-    highlight: "tu crew",
-  },
-  {
-    id: "2",
-    emoji: "🎯",
-    title: "Metas con\nestructura",
-    description:
-      "Define cuánto ahorrar, cada cuánto, y ve el progreso de todos en tiempo real.",
-    highlight: "estructura",
-  },
-  {
-    id: "3",
-    emoji: "🏆",
-    title: "Gamificación\nreal",
-    description:
-      "Rachas, medallas y ranking para que nadie se quede atrás. ¡La presión sana funciona!",
-    highlight: "real",
-  },
-];
+function getSlides() {
+  const lang = getCurrentLanguage();
+  return [
+    {
+      id: "1",
+      icon: "airplane",
+      title: t("welcomeTitle1", lang),
+      description: t("welcomeDesc1", lang),
+      highlight:
+        lang === "en"
+          ? "your crew"
+          : lang === "fr"
+            ? "votre équipe"
+            : "tu crew",
+    },
+    {
+      id: "2",
+      icon: "trending-up",
+      title: t("welcomeTitle2", lang),
+      description: t("welcomeDesc2", lang),
+      highlight:
+        lang === "en" ? "together" : lang === "fr" ? "ensemble" : "juntos",
+    },
+    {
+      id: "3",
+      icon: "trophy",
+      title: t("welcomeTitle3", lang),
+      description: t("welcomeDesc3", lang),
+      highlight:
+        lang === "en" ? "achievement" : lang === "fr" ? "réussite" : "logro",
+    },
+  ];
+}
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -52,40 +61,36 @@ export default function WelcomeScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+  const lang = getCurrentLanguage();
+  const SLIDES = getSlides();
 
   const goNext = async () => {
     if (currentIndex < SLIDES.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
       try {
-        console.log("Starting Google Sign In...");
         await signIn();
 
         // Give a moment for state to update
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        console.log("Sign in successful, navigating to tabs...");
         router.replace("/(tabs)");
       } catch (error: any) {
-        console.error("Login error:", error);
-
         // Check if user was actually created but session failed
         const {
           data: { session },
         } = await supabase.auth.getSession();
         if (session) {
-          console.log("Session exists after error, navigating anyway...");
           router.replace("/(tabs)");
           return;
         }
 
         Alert.alert(
-          "Error al iniciar sesión",
-          error.message ||
-            "Por favor intenta de nuevo. Si el problema persiste, cierra y vuelve a abrir la app.",
+          t("loginError", lang),
+          error.message || t("loginErrorMsg", lang),
           [
-            { text: "Reintentar", onPress: goNext },
-            { text: "Cancelar", style: "cancel" },
+            { text: t("retry", lang), onPress: goNext },
+            { text: t("cancel", lang), style: "cancel" },
           ],
         );
       }
@@ -97,7 +102,12 @@ export default function WelcomeScreen() {
 
     return (
       <View style={styles.slide}>
-        <Text style={styles.emoji}>{item.emoji}</Text>
+        <Ionicons
+          name={item.icon as any}
+          size={64}
+          color="#6c63ff"
+          style={styles.icon}
+        />
         <Text style={styles.title}>
           {titleParts[0]}
           <Text style={styles.titleHighlight}>{item.highlight}</Text>
@@ -172,18 +182,17 @@ export default function WelcomeScreen() {
         <Button
           title={
             currentIndex === SLIDES.length - 1
-              ? "🚀 Continuar con Google"
-              : "Continuar →"
+              ? t("continueWithGoogle", lang)
+              : t("continueBtn", lang)
           }
           onPress={goNext}
-          icon={currentIndex === SLIDES.length - 1 ? "🔐" : undefined}
         />
         {currentIndex < SLIDES.length - 1 && (
           <TouchableOpacity
             style={styles.skipBtn}
             onPress={() => setCurrentIndex(SLIDES.length - 1)}
           >
-            <Text style={styles.skipText}>Saltar</Text>
+            <Text style={styles.skipText}>{t("skip", lang)}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -227,8 +236,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingBottom: Spacing.xl,
   },
-  emoji: {
-    fontSize: 80,
+  icon: {
     marginBottom: Spacing.xxl,
   },
   title: {

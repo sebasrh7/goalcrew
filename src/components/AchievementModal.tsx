@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 import { ACHIEVEMENTS, Colors, Radius, Spacing } from "../constants";
+import { getAchievementText, t } from "../lib/i18n";
+import { useSettingsStore } from "../store/settingsStore";
 import { AchievementType } from "../types";
 
 interface AchievementModalProps {
@@ -70,9 +72,13 @@ export function AchievementModal({
     });
   };
 
+  const { settings } = useSettingsStore();
+  const lang = settings.language;
+
   if (!achievementType) return null;
 
   const achievement = ACHIEVEMENTS[achievementType];
+  const localizedText = getAchievementText(achievementType, lang);
 
   return (
     <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
@@ -98,9 +104,9 @@ export function AchievementModal({
             />
           </View>
 
-          <Text style={styles.header}>¡Medalla desbloqueada!</Text>
-          <Text style={styles.title}>{achievement.title}</Text>
-          <Text style={styles.description}>{achievement.description}</Text>
+          <Text style={styles.header}>{t("medalUnlocked", lang)}</Text>
+          <Text style={styles.title}>{localizedText.title}</Text>
+          <Text style={styles.description}>{localizedText.description}</Text>
 
           <View style={styles.glowLine} />
 
@@ -111,7 +117,7 @@ export function AchievementModal({
               end={{ x: 1, y: 0 }}
               style={styles.btnGradient}
             >
-              <Text style={styles.btnText}>¡Genial!</Text>
+              <Text style={styles.btnText}>{t("awesome", lang)}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </LinearGradient>

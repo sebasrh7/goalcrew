@@ -1,17 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
-import Constants from "expo-constants";
 import "react-native-url-polyfill/auto";
 
-const supabaseUrl =
-  process.env.EXPO_PUBLIC_SUPABASE_URL ??
-  Constants.expoConfig?.extra?.supabaseUrl ??
-  "";
-
-const supabaseAnonKey =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
-  Constants.expoConfig?.extra?.supabaseAnonKey ??
-  "";
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("⚠️  Supabase URL or Anon Key missing. Check your .env file.");
@@ -91,48 +83,50 @@ export async function createGroup(groupData: {
   deadline: string;
   goal_amount: number;
   frequency: string;
+  custom_frequency_days?: number | null;
   division_type: string;
-  created_by: string;
 }) {
-  const inviteCode = generateInviteCode();
-  const { data, error } = await supabase
-    .from("groups")
-    .insert({ ...groupData, invite_code: inviteCode })
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("create_group", {
+    p_name: groupData.name,
+    p_emoji: groupData.emoji,
+    p_deadline: groupData.deadline,
+    p_goal_amount: groupData.goal_amount,
+    p_frequency: groupData.frequency,
+    p_custom_frequency_days: groupData.custom_frequency_days ?? null,
+    p_division_type: groupData.division_type,
+  });
   if (error) throw error;
   return data;
 }
 
-export async function joinGroupByCode(inviteCode: string, userId: string) {
-  // Find group by invite code
-  const { data: group, error: groupError } = await supabase
-    .from("groups")
-    .select("*")
-    .eq("invite_code", inviteCode)
-    .single();
-  if (groupError) throw new Error("Código de invitación inválido");
-
-  // Check if already a member
-  const { data: existing } = await supabase
-    .from("group_members")
-    .select("id")
-    .eq("group_id", group.id)
-    .eq("user_id", userId)
-    .single();
-  if (existing) throw new Error("Ya eres miembro de este grupo");
-
-  // Join the group
-  const { error: joinError } = await supabase.from("group_members").insert({
-    group_id: group.id,
-    user_id: userId,
-    individual_goal: group.goal_amount,
-    current_amount: 0,
-    streak_days: 0,
-    total_points: 0,
+export async function joinGroupByCode(
+  inviteCode: string,
+  userId: string,
+  individualGoal?: number,
+) {
+  // Use SECURITY DEFINER RPC to bypass RLS (user isn't a member yet)
+  const { data, error } = await supabase.rpc("join_group_by_code", {
+    p_invite_code: inviteCode,
+    p_individual_goal: individualGoal ?? null,
   });
-  if (joinError) throw joinError;
-  return group;
+  if (error) {
+    // Map server exceptions to friendly messages
+    if (error.message?.includes("Invalid invite code"))
+      throw new Error("Código de invitación inválido");
+    if (error.message?.includes("Already a member"))
+      throw new Error("Ya eres miembro de este grupo");
+    throw error;
+  }
+  return data;
+}
+
+export async function peekGroupByCode(inviteCode: string) {
+  // Use SECURITY DEFINER RPC to get group preview without being a member
+  const { data, error } = await supabase.rpc("peek_group_by_code", {
+    p_invite_code: inviteCode,
+  });
+  if (error) throw error;
+  return data;
 }
 
 // ─── Contributions ───────────────────────────────────────────────────────────
@@ -232,13 +226,75 @@ export function subscribeToGroup(
     )
     .subscribe();
 }
+// ─── Group Management ────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+export async function leaveGroupApi(groupId: string) {
+  const { error } = await supabase.rpc("leave_group", { p_group_id: groupId });
+  if (error) {
+    if (error.message?.includes("Creator cannot leave"))
+      throw new Error("CREATOR_CANNOT_LEAVE");
+    throw error;
+  }
+}
 
-function generateInviteCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from(
-    { length: 8 },
-    () => chars[Math.floor(Math.random() * chars.length)],
-  ).join("");
+export async function deleteGroupApi(groupId: string) {
+  const { error } = await supabase.rpc("delete_group", { p_group_id: groupId });
+  if (error) {
+    if (error.message?.includes("Only the group creator"))
+      throw new Error("NOT_CREATOR");
+    throw error;
+  }
+}
+
+export async function updateGroupApi(
+  groupId: string,
+  updates: {
+    name?: string;
+    emoji?: string;
+    deadline?: string;
+    goal_amount?: number;
+    frequency?: string;
+    custom_frequency_days?: number;
+  },
+) {
+  const { data, error } = await supabase.rpc("update_group", {
+    p_group_id: groupId,
+    p_name: updates.name ?? null,
+    p_emoji: updates.emoji ?? null,
+    p_deadline: updates.deadline ?? null,
+    p_goal_amount: updates.goal_amount ?? null,
+    p_frequency: updates.frequency ?? null,
+    p_custom_frequency_days: updates.custom_frequency_days ?? null,
+  });
+  if (error) {
+    if (error.message?.includes("Only the group creator"))
+      throw new Error("NOT_CREATOR");
+    throw error;
+  }
+  return data;
+}
+
+// ─── Contribution Management ─────────────────────────────────────────────────
+
+export async function deleteContributionApi(contributionId: string) {
+  const { error } = await supabase.rpc("delete_contribution", {
+    p_contribution_id: contributionId,
+  });
+  if (error) throw error;
+}
+
+export async function updateContributionApi(
+  contributionId: string,
+  updates: {
+    amount?: number;
+    note?: string;
+  },
+) {
+  const { data, error } = await supabase.rpc("update_contribution", {
+    p_contribution_id: contributionId,
+    p_amount: updates.amount ?? null,
+    p_note: updates.note ?? null,
+  });
+  if (error) throw error;
+  return data;
 }

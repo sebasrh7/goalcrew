@@ -1,6 +1,11 @@
 // ─── Database Types (matches Supabase schema) ───────────────────────────────
 
-export type FrequencyType = "daily" | "weekly" | "monthly";
+export type FrequencyType =
+  | "daily"
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "custom";
 export type DivisionType = "equal" | "custom";
 export type MemberStatus = "on_track" | "at_risk" | "behind";
 
@@ -19,6 +24,7 @@ export interface Group {
   deadline: string; // ISO date string
   goal_amount: number; // total goal per person in USD
   frequency: FrequencyType;
+  custom_frequency_days: number | null;
   division_type: DivisionType;
   invite_code: string;
   created_by: string; // user_id
@@ -135,6 +141,7 @@ export interface AuthState {
   signUp: () => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 export interface GroupsState {
@@ -144,7 +151,24 @@ export interface GroupsState {
   fetchGroups: () => Promise<void>;
   fetchGroup: (id: string) => Promise<void>;
   createGroup: (data: CreateGroupInput) => Promise<Group>;
-  joinGroup: (inviteCode: string) => Promise<void>;
+  joinGroup: (inviteCode: string, individualGoal?: number) => Promise<void>;
+  updateMemberGoal: (groupId: string, newGoal: number) => Promise<void>;
+  leaveGroup: (groupId: string) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
+  updateGroup: (
+    groupId: string,
+    updates: Partial<
+      Pick<
+        Group,
+        | "name"
+        | "emoji"
+        | "deadline"
+        | "goal_amount"
+        | "frequency"
+        | "custom_frequency_days"
+      >
+    >,
+  ) => Promise<void>;
 }
 
 export interface CreateGroupInput {
@@ -153,6 +177,7 @@ export interface CreateGroupInput {
   deadline: string;
   goal_amount: number;
   frequency: FrequencyType;
+  custom_frequency_days?: number;
   division_type: DivisionType;
   member_count?: number;
 }
@@ -166,4 +191,13 @@ export interface ContributionsState {
     note?: string,
   ) => Promise<void>;
   fetchContributions: (groupId: string) => Promise<void>;
+  deleteContribution: (
+    contributionId: string,
+    groupId: string,
+  ) => Promise<void>;
+  updateContribution: (
+    contributionId: string,
+    groupId: string,
+    updates: { amount?: number; note?: string },
+  ) => Promise<void>;
 }
