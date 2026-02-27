@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,25 +16,52 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { GroupCard } from "../../src/components/GroupCard";
 import { Avatar, EmptyState, SectionHeader } from "../../src/components/UI";
 import { Colors, FontSize, Radius, Spacing } from "../../src/constants";
-import { formatCurrency } from "../../src/lib/currency";
+import { CURRENCIES, formatCurrency } from "../../src/lib/currency";
 import { Language, t } from "../../src/lib/i18n";
 import { useAuthStore } from "../../src/store/authStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
-import { useSettingsStore } from "../../src/store/settingsStore";
+import { UserSettings, useSettingsStore } from "../../src/store/settingsStore";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { groups, fetchGroups, isLoading } = useGroupsStore();
-  const { settings } = useSettingsStore();
+  const { settings, needsCurrencySetup, dismissCurrencySetup, updateSettings } =
+    useSettingsStore();
+  const lang = settings.language;
+  const translate = (key: string) => t(key, lang);
+
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(
+    settings.currency,
+  );
+
+  const CURRENCY_CODES = Object.keys(CURRENCIES);
 
   useEffect(() => {
     fetchGroups();
   }, []);
 
+  // Refresh when tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchGroups();
+    }, []),
+  );
+
   const onRefresh = useCallback(() => {
     fetchGroups();
   }, []);
+
+  const handleCurrencyConfirm = useCallback(async () => {
+    try {
+      await updateSettings({
+        currency: selectedCurrency as UserSettings["currency"],
+      });
+    } catch {
+      // best-effort
+    }
+    dismissCurrencySetup();
+  }, [selectedCurrency, updateSettings, dismissCurrencySetup]);
 
   // Compute quick stats
   const totalSaved = useMemo(
@@ -207,6 +235,77 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* First-login Currency Selection Modal */}
+      <Modal
+        visible={needsCurrencySetup}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {}}
+      >
+        <View style={styles.currencyModalOverlay}>
+          <View style={styles.currencyModalContent}>
+            <Text style={styles.currencyModalTitle}>
+              {translate("welcomeCurrencyTitle")}
+            </Text>
+            <Text style={styles.currencyModalDesc}>
+              {translate("welcomeCurrencyDesc")}
+            </Text>
+
+            <FlatList
+              data={CURRENCY_CODES}
+              keyExtractor={(item) => item}
+              style={{ maxHeight: 320 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item: code }) => {
+                const isSelected = selectedCurrency === code;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.currencyItem,
+                      isSelected && styles.currencyItemSelected,
+                    ]}
+                    onPress={() => setSelectedCurrency(code)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.currencyItemText,
+                          isSelected && styles.currencyItemTextSelected,
+                        ]}
+                      >
+                        {translate(`currency_${code}`)}
+                      </Text>
+                      <Text style={styles.currencyItemCode}>{code}</Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={Colors.accent}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            <TouchableOpacity
+              style={styles.currencyConfirmBtn}
+              onPress={handleCurrencyConfirm}
+            >
+              <LinearGradient
+                colors={Colors.gradientPrimary}
+                style={styles.currencyConfirmGradient}
+              >
+                <Text style={styles.currencyConfirmText}>
+                  {translate("confirmCurrency")}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -228,7 +327,16 @@ function StatCard({
   );
 }
 
-function ActivityItem({ item }: { item: any }) {
+function ActivityItem({
+  item,
+}: {
+  item: {
+    created_at: string;
+    amount: number;
+    user?: { name: string };
+    groupName?: string;
+  };
+}) {
   const { settings } = useSettingsStore();
   const timeAgo = getTimeAgo(item.created_at, settings.language);
   return (
@@ -359,4 +467,78 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   joinSubtext: { fontSize: FontSize.xs, color: Colors.text2, marginTop: 4 },
+  // First-login currency modal
+  currencyModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  currencyModalContent: {
+    width: "100%",
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.surface3,
+  },
+  currencyModalTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: "800",
+    color: Colors.text,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  currencyModalDesc: {
+    fontSize: FontSize.sm,
+    color: Colors.text2,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+    lineHeight: 20,
+  },
+  currencyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.bg,
+  },
+  currencyItemSelected: {
+    backgroundColor: Colors.accent + "18",
+    borderWidth: 1,
+    borderColor: Colors.accent + "40",
+  },
+  currencyItemText: {
+    fontSize: FontSize.base,
+    fontWeight: "500",
+    color: Colors.text,
+  },
+  currencyItemTextSelected: {
+    color: Colors.accent,
+    fontWeight: "700",
+  },
+  currencyItemCode: {
+    fontSize: FontSize.xs,
+    color: Colors.text3,
+    marginTop: 2,
+  },
+  currencyConfirmBtn: {
+    marginTop: Spacing.lg,
+    borderRadius: Radius.lg,
+    overflow: "hidden",
+  },
+  currencyConfirmGradient: {
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    borderRadius: Radius.lg,
+  },
+  currencyConfirmText: {
+    fontSize: FontSize.base,
+    fontWeight: "700",
+    color: "#fff",
+  },
 });

@@ -5,6 +5,7 @@ import React from "react";
 import {
   ActivityIndicator,
   Image,
+  ImageStyle,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,7 +13,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Colors, FontSize, Radius, Spacing } from "../constants";
-import { t as _t } from "../lib/i18n";
+import { Language, t as _t } from "../lib/i18n";
 import { MemberStatus } from "../types";
 
 // ─── Button ──────────────────────────────────────────────────────────────────
@@ -58,6 +59,9 @@ export function Button({
         disabled={disabled || isLoading}
         style={[{ opacity: disabled ? 0.5 : 1 }, style]}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ disabled: disabled || isLoading }}
       >
         <LinearGradient
           colors={Colors.gradientPrimary}
@@ -108,6 +112,9 @@ export function Button({
       onPress={handlePress}
       disabled={disabled || isLoading}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || isLoading }}
       style={[
         styles.btnBase,
         sizeStyle,
@@ -190,19 +197,25 @@ export function Avatar({
     .toUpperCase();
 
   const fontSize = size * 0.35;
-  const colors = gradient ?? getAvatarGradient(name);
+  const colors = [...(gradient ?? getAvatarGradient(name))] as [
+    string,
+    string,
+    ...string[],
+  ];
 
   if (imageUrl) {
     return (
       <Image
         source={{ uri: imageUrl }}
+        accessibilityRole="image"
+        accessibilityLabel={name}
         style={[
           {
             width: size,
             height: size,
             borderRadius: size / 2,
           },
-          style,
+          style as ImageStyle,
         ]}
       />
     );
@@ -210,7 +223,7 @@ export function Avatar({
 
   return (
     <LinearGradient
-      colors={colors as any}
+      colors={colors}
       style={[
         {
           width: size,
@@ -305,8 +318,8 @@ export function StatusPill({
   status,
   style,
   lang,
-}: StatusPillProps & { lang?: string }) {
-  const l = lang || "es";
+}: StatusPillProps & { lang?: Language }) {
+  const l: Language = lang || "es";
   const config = {
     on_track: {
       icon: "checkmark-circle",
@@ -479,3 +492,4 @@ const styles = StyleSheet.create({
 
 // ─── AchievementIcon Export ──────────────────────────────────────────────────
 export { AchievementIcon } from "./AchievementIcon";
+

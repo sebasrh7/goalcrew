@@ -6,7 +6,9 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("⚠️  Supabase URL or Anon Key missing. Check your .env file.");
+  throw new Error(
+    "Missing Supabase credentials. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file.",
+  );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -220,16 +222,26 @@ export async function unlockAchievement(
 
 export function subscribeToGroup(
   groupId: string,
-  onContribution: (payload: any) => void,
+  onContribution: (payload: { new: Record<string, unknown> }) => void,
 ) {
   return supabase
     .channel(`group:${groupId}`)
     .on(
       "postgres_changes",
       {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "contributions",
+        filter: `group_id=eq.${groupId}`,
+      },
+      onContribution,
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "group_members",
         filter: `group_id=eq.${groupId}`,
       },
       onContribution,

@@ -3,7 +3,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -11,8 +10,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AlertModal } from "../../src/components/AlertModal";
 import { Button } from "../../src/components/UI";
-import { Colors, FontSize, Radius, Spacing } from "../../src/constants";
+import {
+  Colors,
+  FontSize,
+  Radius,
+  Spacing,
+  getErrorMessage,
+} from "../../src/constants";
 import { formatCurrency } from "../../src/lib/currency";
 import { t } from "../../src/lib/i18n";
 import { peekGroupByCode } from "../../src/lib/supabase";
@@ -33,10 +39,53 @@ export default function JoinGroupScreen() {
   } | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    icon?: string;
+    iconColor?: string;
+    buttons?: {
+      text: string;
+      onPress: () => void;
+      style?: "default" | "cancel" | "destructive";
+    }[];
+  }>({ visible: false, title: "" });
+
+  const showAlert = (
+    title: string,
+    message?: string,
+    options?: {
+      icon?: string;
+      iconColor?: string;
+      buttons?: {
+        text: string;
+        onPress: () => void;
+        style?: "default" | "cancel" | "destructive";
+      }[];
+    },
+  ) => {
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      icon: options?.icon,
+      iconColor: options?.iconColor,
+      buttons: options?.buttons,
+    });
+  };
+
+  const dismissAlert = () =>
+    setAlertModal((prev) => ({ ...prev, visible: false }));
+
   const handleJoin = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 6) {
-      Alert.alert(t("invalidCode", lang), t("enterFullCode", lang));
+      showAlert(t("invalidCode", lang), t("enterFullCode", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
 
@@ -54,7 +103,10 @@ export default function JoinGroupScreen() {
           return;
         }
       } catch {
-        Alert.alert(t("error", lang), t("invalidCode", lang));
+        showAlert(t("error", lang), t("invalidCode", lang), {
+          icon: "alert-circle",
+          iconColor: Colors.red,
+        });
         setIsChecking(false);
         return;
       }
@@ -66,17 +118,31 @@ export default function JoinGroupScreen() {
         ? parseFloat(customGoalAmount) || undefined
         : undefined;
       await joinGroup(trimmed, individualGoal);
-      Alert.alert(t("welcome", lang), t("joinedGroup", lang), [
-        { text: t("letsGo", lang), onPress: () => router.replace("/(tabs)") },
-      ]);
-    } catch (error: any) {
+      showAlert(t("welcome", lang), t("joinedGroup", lang), {
+        icon: "checkmark-circle",
+        iconColor: Colors.accent,
+        buttons: [
+          {
+            text: t("letsGo", lang),
+            onPress: () => {
+              dismissAlert();
+              router.replace("/(tabs)");
+            },
+          },
+        ],
+      });
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
       const msg =
-        error.message === "INVALID_INVITE_CODE"
+        errorMsg === "INVALID_INVITE_CODE"
           ? t("invalidInviteCode", lang)
-          : error.message === "ALREADY_MEMBER"
+          : errorMsg === "ALREADY_MEMBER"
             ? t("alreadyMember", lang)
-            : (error.message ?? t("couldNotJoin", lang));
-      Alert.alert(t("error", lang), msg);
+            : (errorMsg ?? t("couldNotJoin", lang));
+      showAlert(t("error", lang), msg, {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
     }
   };
 
@@ -167,6 +233,16 @@ export default function JoinGroupScreen() {
           <Text style={styles.scanBtnSub}>{t("comingSoon", lang)}</Text>
         </TouchableOpacity>
       </View>
+
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
+        iconColor={alertModal.iconColor}
+        onDismiss={dismissAlert}
+        buttons={alertModal.buttons ?? [{ text: "OK", onPress: dismissAlert }]}
+      />
     </SafeAreaView>
   );
 }
@@ -184,7 +260,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.lg,
   },
-  emoji: { fontSize: 64, textAlign: "center", marginBottom: Spacing.lg },
   title: {
     fontSize: FontSize.xxxl,
     fontWeight: "900",

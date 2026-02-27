@@ -181,6 +181,7 @@ export function getMemberStatus(
 ): "on_track" | "at_risk" | "behind" {
   if (totalDays === 0) return "on_track";
   const expectedProgress = (daysElapsed / totalDays) * individualGoal;
+  if (expectedProgress <= 0) return "on_track";
   const ratio = currentAmount / expectedProgress;
   if (ratio >= 0.9) return "on_track";
   if (ratio >= 0.6) return "at_risk";
@@ -202,3 +203,9 @@ export const TRIP_ICONS = [
   { name: "heart", color: "#E11D48" },
   { name: "star", color: "#FBBF24" },
 ];
+
+// ─── Error helper ─────────────────────────────────────────────────────────────
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}

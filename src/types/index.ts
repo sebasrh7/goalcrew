@@ -134,7 +134,7 @@ export type GroupStackParamList = {
 
 export interface AuthState {
   user: User | null;
-  session: any | null;
+  session: import("@supabase/supabase-js").Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: () => Promise<void>;

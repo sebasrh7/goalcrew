@@ -1,21 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AlertModal, SelectModal } from "../src/components/AlertModal";
 import { Colors, FontSize, Radius, Spacing } from "../src/constants";
-import { Language, t } from "../src/lib/i18n";
+import { CURRENCIES } from "../src/lib/currency";
+import { t } from "../src/lib/i18n";
 import {
     onNotificationSettingChanged,
     registerForPushNotificationsAsync,
@@ -32,8 +34,50 @@ export default function SettingsScreen() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    icon?: string;
+    iconColor?: string;
+    buttons?: {
+      text: string;
+      style?: "default" | "cancel" | "destructive";
+      onPress?: () => void;
+    }[];
+  }>({ visible: false, title: "" });
+
+  const showAlert = (
+    title: string,
+    message?: string,
+    options?: {
+      icon?: string;
+      iconColor?: string;
+      buttons?: {
+        text: string;
+        style?: "default" | "cancel" | "destructive";
+        onPress?: () => void;
+      }[];
+    },
+  ) => {
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      icon: options?.icon,
+      iconColor: options?.iconColor,
+      buttons: options?.buttons,
+    });
+  };
+
+  const dismissAlert = () =>
+    setAlertModal((prev) => ({ ...prev, visible: false }));
 
   useEffect(() => {
     loadSettings();
@@ -58,90 +102,71 @@ export default function SettingsScreen() {
   const handleSaveProfile = async () => {
     const trimmedName = editName.trim();
     if (!trimmedName) {
-      Alert.alert(translate("error"), translate("nameRequiredProfile"));
+      showAlert(translate("error"), translate("nameRequiredProfile"), {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
       return;
     }
     try {
       setIsSaving(true);
       await updateProfile({ name: trimmedName });
       setShowProfileModal(false);
-      Alert.alert(translate("success"), translate("profileUpdated"));
-    } catch (error: any) {
-      console.error("❌ Error updating profile:", error);
-      Alert.alert(translate("error"), translate("profileUpdateError"));
+      showAlert(translate("success"), translate("profileUpdated"), {
+        icon: "checkmark-circle",
+        iconColor: Colors.green,
+      });
+    } catch (error: unknown) {
+      showAlert(translate("error"), translate("profileUpdateError"), {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleLanguageChange = () => {
-    const languages: { label: string; value: Language }[] = [
-      { label: "Español", value: "es" },
-      { label: "English", value: "en" },
-      { label: "Français", value: "fr" },
-    ];
-
-    Alert.alert(translate("language"), translate("selectLanguage"), [
-      { text: translate("cancel"), style: "cancel" },
-      ...languages.map((lang) => ({
-        text: lang.label,
-        onPress: () => handleSettingUpdate("language", lang.value),
-      })),
-    ]);
+    setShowLanguageModal(true);
   };
+
+  const handleLanguageSelect = (value: string) => {
+    setShowLanguageModal(false);
+    handleSettingUpdate("language", value);
+  };
+
+  const languageOptions = [
+    { label: "Español", value: "es" },
+    { label: "English", value: "en" },
+    { label: "Français", value: "fr" },
+  ];
 
   const handleCurrencyChange = () => {
-    Alert.alert(translate("currency"), translate("selectCurrency"), [
-      {
-        text: "US Dollar ($)",
-        onPress: () => handleSettingUpdate("currency", "USD"),
-      },
-      {
-        text: "Euro (€)",
-        onPress: () => handleSettingUpdate("currency", "EUR"),
-      },
-      {
-        text: "British Pound (£)",
-        onPress: () => handleSettingUpdate("currency", "GBP"),
-      },
-      {
-        text: "Peso Colombiano ($)",
-        onPress: () => handleSettingUpdate("currency", "COP"),
-      },
-      {
-        text: "Peso Mexicano ($)",
-        onPress: () => handleSettingUpdate("currency", "MXN"),
-      },
-      { text: translate("cancel"), style: "cancel" },
-    ]);
+    setShowCurrencyModal(true);
   };
 
-  const handleCurrencyChangeMore = () => {
-    Alert.alert(translate("currency"), translate("moreCurrencies"), [
-      {
-        text: "Peso Argentino ($)",
-        onPress: () => handleSettingUpdate("currency", "ARS"),
-      },
-      {
-        text: "Peso Chileno ($)",
-        onPress: () => handleSettingUpdate("currency", "CLP"),
-      },
-      {
-        text: "Sol Peruano (S/)",
-        onPress: () => handleSettingUpdate("currency", "PEN"),
-      },
-      {
-        text: "Real Brasileño (R$)",
-        onPress: () => handleSettingUpdate("currency", "BRL"),
-      },
-      { text: translate("cancel"), style: "cancel" },
-    ]);
+  const handleCurrencySelect = (code: string) => {
+    setShowCurrencyModal(false);
+    handleSettingUpdate("currency", code);
   };
 
-  const handleSettingUpdate = async (key: string, value: any) => {
+  const CURRENCY_CODES = Object.keys(CURRENCIES) as string[];
+
+  const handleSettingUpdate = async (
+    key: string,
+    value: string | boolean | number,
+  ) => {
     setIsSaving(true);
-    await updateSettings({ [key]: value });
-    setIsSaving(false);
+    try {
+      await updateSettings({ [key]: value });
+    } catch (error) {
+      showAlert(translate("error"), translate("settingsUpdateError"), {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
+    } finally {
+      setIsSaving(false);
+    }
 
     // Handle notification-related toggle changes
     const notifKeys = [
@@ -151,7 +176,11 @@ export default function SettingsScreen() {
     ];
     if (notifKeys.includes(key)) {
       try {
-        await onNotificationSettingChanged(key, value, settings.language);
+        await onNotificationSettingChanged(
+          key,
+          value as boolean,
+          settings.language,
+        );
         if (key === "push_notifications" && value === true) {
           await scheduleNotification(
             `🔔 ${translate("notificationsEnabled")}`,
@@ -165,58 +194,36 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleToggle = (key: string, currentValue: boolean) => {
-    handleSettingUpdate(key, !currentValue);
+  const handleToggle = (key: string, value: boolean) => {
+    handleSettingUpdate(key, value);
   };
 
-  const handleExportData = () => {
-    Alert.alert(translate("exportData"), translate("exportDataConfirm"), [
-      { text: translate("cancel"), style: "cancel" },
-      {
-        text: translate("exportBtn"),
-        onPress: () =>
-          Alert.alert(translate("success"), translate("exportSuccess")),
-      },
-    ]);
-  };
+  // Delete account — two-step confirmation via modals
+  const [showDeleteStep1, setShowDeleteStep1] = useState(false);
+  const [showDeleteStep2, setShowDeleteStep2] = useState(false);
 
   const handleDeleteAccount = () => {
-    Alert.alert(translate("deleteAccount"), translate("deleteAccountConfirm"), [
-      { text: translate("cancel"), style: "cancel" },
-      {
-        text: translate("deleteBtn"),
-        style: "destructive",
-        onPress: () => {
-          Alert.alert(
-            translate("finalConfirmation"),
-            translate("typeDeleteConfirm"),
-            [
-              { text: translate("cancel"), style: "cancel" },
-              {
-                text: translate("deletePermanently"),
-                style: "destructive",
-                onPress: async () => {
-                  try {
-                    setIsDeleting(true);
-                    await deleteAccount();
-                    // deleteAccount already signs out and clears state
-                    // Router will redirect to auth screen automatically
-                  } catch (error: any) {
-                    console.error("❌ Error deleting account:", error);
-                    Alert.alert(
-                      translate("error"),
-                      translate("deleteAccountError"),
-                    );
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                },
-              },
-            ],
-          );
-        },
-      },
-    ]);
+    setShowDeleteStep1(true);
+  };
+
+  const handleDeleteStep1Confirm = () => {
+    setShowDeleteStep1(false);
+    setShowDeleteStep2(true);
+  };
+
+  const handleDeleteStep2Confirm = async () => {
+    setShowDeleteStep2(false);
+    try {
+      setIsDeleting(true);
+      await deleteAccount();
+    } catch (error: unknown) {
+      showAlert(translate("error"), translate("deleteAccountError"), {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -237,28 +244,7 @@ export default function SettingsScreen() {
         : "Français";
 
   const getCurrentCurrencyLabel = () => {
-    switch (settings.currency) {
-      case "USD":
-        return "US Dollar ($)";
-      case "EUR":
-        return "Euro (€)";
-      case "GBP":
-        return "British Pound (£)";
-      case "COP":
-        return "Peso Colombiano ($)";
-      case "MXN":
-        return "Peso Mexicano ($)";
-      case "ARS":
-        return "Peso Argentino ($)";
-      case "CLP":
-        return "Peso Chileno ($)";
-      case "PEN":
-        return "Sol Peruano (S/)";
-      case "BRL":
-        return "Real Brasileño (R$)";
-      default:
-        return "US Dollar ($)";
-    }
+    return translate(`currency_${settings.currency}`) || settings.currency;
   };
 
   return (
@@ -330,38 +316,6 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
             </View>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.settingItem, isSaving && styles.settingItemDisabled]}
-            onPress={handleCurrencyChangeMore}
-            disabled={isSaving}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="earth-outline" size={20} color={Colors.text} />
-              <Text style={styles.settingLabel}>
-                {translate("moreCurrencies")}
-              </Text>
-            </View>
-            <View style={styles.settingRight}>
-              <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="moon-outline" size={20} color={Colors.text} />
-              <Text style={styles.settingLabel}>{translate("darkMode")}</Text>
-            </View>
-            <Switch
-              value={settings.theme === "dark"}
-              onValueChange={(value) =>
-                handleSettingUpdate("theme", value ? "dark" : "light")
-              }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
-              disabled={isSaving}
-            />
-          </View>
         </View>
 
         {/* Sección Notificaciones */}
@@ -384,28 +338,7 @@ export default function SettingsScreen() {
             <Switch
               value={settings.push_notifications}
               onValueChange={(value) =>
-                handleToggle("push_notifications", settings.push_notifications)
-              }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
-              disabled={isSaving}
-            />
-          </View>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="mail-outline" size={20} color={Colors.text} />
-              <Text style={styles.settingLabel}>
-                {translate("emailNotifications")}
-              </Text>
-            </View>
-            <Switch
-              value={settings.email_notifications}
-              onValueChange={(value) =>
-                handleToggle(
-                  "email_notifications",
-                  settings.email_notifications,
-                )
+                handleToggle("push_notifications", value)
               }
               trackColor={{ false: Colors.surface3, true: Colors.accent }}
               thumbColor={Colors.bg}
@@ -423,10 +356,7 @@ export default function SettingsScreen() {
             <Switch
               value={settings.contribution_reminders}
               onValueChange={(value) =>
-                handleToggle(
-                  "contribution_reminders",
-                  settings.contribution_reminders,
-                )
+                handleToggle("contribution_reminders", value)
               }
               trackColor={{ false: Colors.surface3, true: Colors.accent }}
               thumbColor={Colors.bg}
@@ -444,74 +374,13 @@ export default function SettingsScreen() {
             <Switch
               value={settings.achievement_notifications}
               onValueChange={(value) =>
-                handleToggle(
-                  "achievement_notifications",
-                  settings.achievement_notifications,
-                )
+                handleToggle("achievement_notifications", value)
               }
               trackColor={{ false: Colors.surface3, true: Colors.accent }}
               thumbColor={Colors.bg}
               disabled={isSaving}
             />
           </View>
-        </View>
-
-        {/* Sección Privacidad */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {translate("privacySecurity").toUpperCase()}
-          </Text>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="eye-outline" size={20} color={Colors.text} />
-              <Text style={styles.settingLabel}>
-                {translate("publicProfile")}
-              </Text>
-            </View>
-            <Switch
-              value={settings.public_profile}
-              onValueChange={(value) =>
-                handleToggle("public_profile", settings.public_profile)
-              }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
-              disabled={isSaving}
-            />
-          </View>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Ionicons
-                name="stats-chart-outline"
-                size={20}
-                color={Colors.text}
-              />
-              <Text style={styles.settingLabel}>
-                {translate("showStatistics")}
-              </Text>
-            </View>
-            <Switch
-              value={settings.show_stats}
-              onValueChange={(value) =>
-                handleToggle("show_stats", settings.show_stats)
-              }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
-              disabled={isSaving}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleExportData}
-          >
-            <View style={styles.settingLeft}>
-              <Ionicons name="download-outline" size={20} color={Colors.text} />
-              <Text style={styles.settingLabel}>{translate("exportData")}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
-          </TouchableOpacity>
         </View>
 
         {/* Sección Cuenta - Zona Peligrosa */}
@@ -536,7 +405,9 @@ export default function SettingsScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>GoalCrew v1.0.0</Text>
+          <Text style={styles.footerText}>
+            GoalCrew v{Constants.expoConfig?.version ?? "1.0.0"}
+          </Text>
           <Text style={styles.footerText}>{translate("madeWithLove")}</Text>
           {isSaving && (
             <Text style={styles.savingText}>{translate("saving")}</Text>
@@ -602,6 +473,85 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Currency Selection Modal */}
+      <SelectModal
+        visible={showCurrencyModal}
+        title={translate("selectCurrency")}
+        options={CURRENCY_CODES.map((code) => ({
+          label: translate(`currency_${code}`),
+          sublabel: code,
+          value: code,
+        }))}
+        selectedValue={settings.currency}
+        onSelect={handleCurrencySelect}
+        onClose={() => setShowCurrencyModal(false)}
+      />
+
+      {/* Language Selection Modal */}
+      <SelectModal
+        visible={showLanguageModal}
+        title={translate("selectLanguage")}
+        options={languageOptions}
+        selectedValue={settings.language}
+        onSelect={handleLanguageSelect}
+        onClose={() => setShowLanguageModal(false)}
+      />
+
+      {/* Generic Alert Modal */}
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        icon={alertModal.icon as any}
+        iconColor={alertModal.iconColor}
+        buttons={alertModal.buttons}
+        onDismiss={dismissAlert}
+      />
+
+      {/* Delete Account — Step 1 */}
+      <AlertModal
+        visible={showDeleteStep1}
+        title={translate("deleteAccount")}
+        message={translate("deleteAccountConfirm")}
+        icon="warning"
+        iconColor={Colors.red}
+        onDismiss={() => setShowDeleteStep1(false)}
+        buttons={[
+          {
+            text: translate("cancel"),
+            style: "cancel",
+            onPress: () => setShowDeleteStep1(false),
+          },
+          {
+            text: translate("deleteBtn"),
+            style: "destructive",
+            onPress: handleDeleteStep1Confirm,
+          },
+        ]}
+      />
+
+      {/* Delete Account — Step 2 */}
+      <AlertModal
+        visible={showDeleteStep2}
+        title={translate("finalConfirmation")}
+        message={translate("typeDeleteConfirm")}
+        icon="trash"
+        iconColor={Colors.red}
+        onDismiss={() => setShowDeleteStep2(false)}
+        buttons={[
+          {
+            text: translate("cancel"),
+            style: "cancel",
+            onPress: () => setShowDeleteStep2(false),
+          },
+          {
+            text: translate("deletePermanently"),
+            style: "destructive",
+            onPress: handleDeleteStep2Confirm,
+          },
+        ]}
+      />
 
       {/* Deleting Account Overlay */}
       {isDeleting && (
@@ -812,4 +762,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.red,
   },
+  // Currency modal styles — now handled by SelectModal component
 });

@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -28,6 +28,7 @@ import Svg, {
   LinearGradient as SvgGradient,
 } from "react-native-svg";
 import { AchievementModal } from "../../src/components/AchievementModal";
+import { AlertModal } from "../../src/components/AlertModal";
 import { MemberRow } from "../../src/components/MemberRow";
 import { Button, Card, StatusPill } from "../../src/components/UI";
 import {
@@ -36,6 +37,7 @@ import {
   Radius,
   Spacing,
   TRIP_ICONS,
+  getErrorMessage,
 } from "../../src/constants";
 import {
   CURRENCIES,
@@ -87,6 +89,19 @@ export default function GroupScreen() {
   const [editGoalAmount, setEditGoalAmount] = useState("");
   const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
 
+  // Clear contribution fields when modal closes
+  const openContribModal = useCallback(() => {
+    setContribAmount("");
+    setContribNote("");
+    setShowContribModal(true);
+  }, []);
+
+  const closeContribModal = useCallback(() => {
+    setShowContribModal(false);
+    setContribAmount("");
+    setContribNote("");
+  }, []);
+
   // Phase 2 state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
@@ -98,6 +113,46 @@ export default function GroupScreen() {
   const [editContribId, setEditContribId] = useState<string | null>(null);
   const [editContribAmount, setEditContribAmount] = useState("");
   const [editContribNote, setEditContribNote] = useState("");
+
+  // Alert modal state (replaces Alert.alert)
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    icon?: string;
+    iconColor?: string;
+    buttons?: {
+      text: string;
+      style?: "default" | "cancel" | "destructive";
+      onPress?: () => void;
+    }[];
+  }>({ visible: false, title: "" });
+
+  const showAlert = (
+    title: string,
+    message?: string,
+    options?: {
+      icon?: string;
+      iconColor?: string;
+      buttons?: {
+        text: string;
+        style?: "default" | "cancel" | "destructive";
+        onPress?: () => void;
+      }[];
+    },
+  ) => {
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      icon: options?.icon,
+      iconColor: options?.iconColor,
+      buttons: options?.buttons,
+    });
+  };
+
+  const dismissAlert = () =>
+    setAlertModal((prev) => ({ ...prev, visible: false }));
 
   useEffect(() => {
     if (id) {
@@ -128,19 +183,30 @@ export default function GroupScreen() {
   const handleAddContribution = async () => {
     const amount = parseFloat(contribAmount);
     if (!amount || amount <= 0) {
-      Alert.alert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang));
+      showAlert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
+      return;
+    }
+    // Max amount validation — prevent unreasonable values
+    const maxAmount = 999_999_999;
+    if (amount > maxAmount) {
+      showAlert(t("invalidAmount", lang), t("amountTooLarge", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
     try {
       await addContribution(id!, amount, contribNote || undefined);
-      setShowContribModal(false);
-      setContribAmount("");
-      setContribNote("");
+      closeContribModal();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error: any) {
-      Alert.alert(
+    } catch (error: unknown) {
+      showAlert(
         t("error", lang),
-        error.message ?? t("couldNotRegister", lang),
+        getErrorMessage(error) ?? t("couldNotRegister", lang),
+        { icon: "alert-circle", iconColor: Colors.red },
       );
     }
   };
@@ -155,9 +221,10 @@ export default function GroupScreen() {
     } catch {
       // Copy to clipboard fallback
       await Clipboard.setStringAsync(currentGroup.invite_code);
-      Alert.alert(
+      showAlert(
         t("codeCopied", lang),
         `${t("code", lang)}: ${currentGroup.invite_code}`,
+        { icon: "copy", iconColor: Colors.accent },
       );
     }
   };
@@ -171,7 +238,10 @@ export default function GroupScreen() {
   const handleSaveGoal = async () => {
     const amount = parseFloat(editGoalAmount);
     if (!amount || amount <= 0) {
-      Alert.alert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang));
+      showAlert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
     setIsUpdatingGoal(true);
@@ -179,8 +249,15 @@ export default function GroupScreen() {
       await updateMemberGoal(id!, amount);
       setShowEditGoalModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error: any) {
-      Alert.alert(t("error", lang), error.message ?? t("couldNotUpdate", lang));
+    } catch (error: unknown) {
+      showAlert(
+        t("error", lang),
+        getErrorMessage(error) ?? t("couldNotUpdate", lang),
+        {
+          icon: "alert-circle",
+          iconColor: Colors.red,
+        },
+      );
     } finally {
       setIsUpdatingGoal(false);
     }
@@ -191,45 +268,68 @@ export default function GroupScreen() {
   const isCreator = currentGroup?.created_by === user?.id;
 
   const handleLeaveGroup = () => {
-    Alert.alert(t("leaveGroup", lang), t("leaveGroupConfirm", lang), [
-      { text: t("cancel", lang), style: "cancel" },
-      {
-        text: t("leave", lang),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await leaveGroup(id!);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            router.replace("/(tabs)");
-          } catch (error: any) {
-            if (error.message === "CREATOR_CANNOT_LEAVE") {
-              Alert.alert(t("error", lang), t("creatorCannotLeave", lang));
-            } else {
-              Alert.alert(t("error", lang), error.message);
+    showAlert(t("leaveGroup", lang), t("leaveGroupConfirm", lang), {
+      icon: "exit-outline",
+      iconColor: Colors.red,
+      buttons: [
+        { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+        {
+          text: t("leave", lang),
+          style: "destructive",
+          onPress: async () => {
+            dismissAlert();
+            try {
+              await leaveGroup(id!);
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+              router.replace("/(tabs)");
+            } catch (error: unknown) {
+              if (getErrorMessage(error) === "CREATOR_CANNOT_LEAVE") {
+                showAlert(t("error", lang), t("creatorCannotLeave", lang), {
+                  icon: "alert-circle",
+                  iconColor: Colors.red,
+                });
+              } else {
+                showAlert(t("error", lang), getErrorMessage(error), {
+                  icon: "alert-circle",
+                  iconColor: Colors.red,
+                });
+              }
             }
-          }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleDeleteGroup = () => {
-    Alert.alert(t("deleteGroup", lang), t("deleteGroupConfirm", lang), [
-      { text: t("cancel", lang), style: "cancel" },
-      {
-        text: t("delete", lang),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteGroup(id!);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            router.replace("/(tabs)");
-          } catch (error: any) {
-            Alert.alert(t("error", lang), error.message);
-          }
+    showAlert(t("deleteGroup", lang), t("deleteGroupConfirm", lang), {
+      icon: "trash",
+      iconColor: Colors.red,
+      buttons: [
+        { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+        {
+          text: t("delete", lang),
+          style: "destructive",
+          onPress: async () => {
+            dismissAlert();
+            try {
+              await deleteGroup(id!);
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+              router.replace("/(tabs)");
+            } catch (error: unknown) {
+              showAlert(t("error", lang), getErrorMessage(error), {
+                icon: "alert-circle",
+                iconColor: Colors.red,
+              });
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleOpenEditGroup = () => {
@@ -245,7 +345,10 @@ export default function GroupScreen() {
 
   const handleSaveGroup = async () => {
     if (!editGroupName.trim()) {
-      Alert.alert(t("error", lang), t("nameRequired", lang));
+      showAlert(t("error", lang), t("nameRequired", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
     setIsUpdatingGroup(true);
@@ -257,38 +360,53 @@ export default function GroupScreen() {
       });
       setShowEditGroupModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error: any) {
-      Alert.alert(t("error", lang), error.message);
+    } catch (error: unknown) {
+      showAlert(t("error", lang), getErrorMessage(error), {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
     } finally {
       setIsUpdatingGroup(false);
     }
   };
 
   const handleDeleteContribution = (contribId: string) => {
-    Alert.alert(
+    showAlert(
       t("deleteContribution", lang),
       t("deleteContributionConfirm", lang),
-      [
-        { text: t("cancel", lang), style: "cancel" },
-        {
-          text: t("delete", lang),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteContribution(contribId, id!);
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success,
-              );
-            } catch (error: any) {
-              Alert.alert(t("error", lang), error.message);
-            }
+      {
+        icon: "trash",
+        iconColor: Colors.red,
+        buttons: [
+          { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+          {
+            text: t("delete", lang),
+            style: "destructive",
+            onPress: async () => {
+              dismissAlert();
+              try {
+                await deleteContribution(contribId, id!);
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+              } catch (error: unknown) {
+                showAlert(t("error", lang), getErrorMessage(error), {
+                  icon: "alert-circle",
+                  iconColor: Colors.red,
+                });
+              }
+            },
           },
-        },
-      ],
+        ],
+      },
     );
   };
 
-  const handleOpenEditContrib = (contrib: any) => {
+  const handleOpenEditContrib = (contrib: {
+    id: string;
+    amount: number;
+    note: string | null;
+  }) => {
     setEditContribId(contrib.id);
     setEditContribAmount(String(contrib.amount));
     setEditContribNote(contrib.note ?? "");
@@ -298,7 +416,10 @@ export default function GroupScreen() {
   const handleSaveContrib = async () => {
     const amount = parseFloat(editContribAmount);
     if (!amount || amount <= 0) {
-      Alert.alert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang));
+      showAlert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
     try {
@@ -308,8 +429,11 @@ export default function GroupScreen() {
       });
       setShowEditContribModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error: any) {
-      Alert.alert(t("error", lang), error.message);
+    } catch (error: unknown) {
+      showAlert(t("error", lang), getErrorMessage(error), {
+        icon: "alert-circle",
+        iconColor: Colors.red,
+      });
     }
   };
 
@@ -352,7 +476,10 @@ export default function GroupScreen() {
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{ color: Colors.text2 }}>{t("loadingGroup", lang)}</Text>
+          <ActivityIndicator size="large" color={Colors.accent2} />
+          <Text style={{ color: Colors.text2, marginTop: Spacing.md }}>
+            {t("loadingGroup", lang)}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -829,7 +956,7 @@ export default function GroupScreen() {
         visible={showContribModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowContribModal(false)}
+        onRequestClose={closeContribModal}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -838,7 +965,7 @@ export default function GroupScreen() {
           <TouchableOpacity
             style={styles.modalBg}
             activeOpacity={1}
-            onPress={() => setShowContribModal(false)}
+            onPress={closeContribModal}
           >
             <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
@@ -1195,11 +1322,32 @@ export default function GroupScreen() {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Generic Alert Modal */}
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        icon={alertModal.icon as any}
+        iconColor={alertModal.iconColor}
+        buttons={alertModal.buttons}
+        onDismiss={dismissAlert}
+      />
     </SafeAreaView>
   );
 }
 
-function StatRow({ label, value, color, small }: any) {
+function StatRow({
+  label,
+  value,
+  color,
+  small,
+}: {
+  label: string;
+  value: string | number;
+  color?: string;
+  small?: boolean;
+}) {
   return (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>

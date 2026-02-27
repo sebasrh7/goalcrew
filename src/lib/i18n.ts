@@ -895,10 +895,66 @@ export const translations: Translations = {
     en: "Select your currency",
     fr: "Choisissez votre devise",
   },
-  moreCurrencies: {
-    es: "Más monedas",
-    en: "More currencies",
-    fr: "Plus de devises",
+  // Currency names
+  currency_USD: {
+    es: "Dólar estadounidense ($)",
+    en: "US Dollar ($)",
+    fr: "Dollar américain ($)",
+  },
+  currency_EUR: {
+    es: "Euro (€)",
+    en: "Euro (€)",
+    fr: "Euro (€)",
+  },
+  currency_GBP: {
+    es: "Libra esterlina (£)",
+    en: "British Pound (£)",
+    fr: "Livre sterling (£)",
+  },
+  currency_COP: {
+    es: "Peso colombiano ($)",
+    en: "Colombian Peso ($)",
+    fr: "Peso colombien ($)",
+  },
+  currency_MXN: {
+    es: "Peso mexicano ($)",
+    en: "Mexican Peso ($)",
+    fr: "Peso mexicain ($)",
+  },
+  currency_ARS: {
+    es: "Peso argentino ($)",
+    en: "Argentine Peso ($)",
+    fr: "Peso argentin ($)",
+  },
+  currency_CLP: {
+    es: "Peso chileno ($)",
+    en: "Chilean Peso ($)",
+    fr: "Peso chilien ($)",
+  },
+  currency_PEN: {
+    es: "Sol peruano (S/)",
+    en: "Peruvian Sol (S/)",
+    fr: "Sol péruvien (S/)",
+  },
+  currency_BRL: {
+    es: "Real brasileño (R$)",
+    en: "Brazilian Real (R$)",
+    fr: "Réal brésilien (R$)",
+  },
+  welcomeCurrencyTitle: {
+    es: "¿Cuál es tu moneda?",
+    en: "What's your currency?",
+    fr: "Quelle est votre devise ?",
+  },
+  welcomeCurrencyDesc: {
+    es: "Selecciona la moneda que usarás para tus metas de ahorro. Puedes cambiarla después en ajustes.",
+    en: "Select the currency you'll use for your savings goals. You can change it later in settings.",
+    fr: "Sélectionnez la devise que vous utiliserez pour vos objectifs d'épargne. Vous pourrez la modifier dans les paramètres.",
+  },
+  confirmCurrency: {
+    es: "Confirmar",
+    en: "Confirm",
+    fr: "Confirmer",
   },
   editProfileSoon: {
     es: "Editar perfil próximamente disponible",
@@ -934,6 +990,11 @@ export const translations: Translations = {
     es: "Error al actualizar el perfil",
     en: "Error updating profile",
     fr: "Erreur lors de la mise à jour du profil",
+  },
+  settingsUpdateError: {
+    es: "No se pudo guardar la configuración. Intenta de nuevo.",
+    en: "Could not save settings. Please try again.",
+    fr: "Impossible d'enregistrer les paramètres. Veuillez réessayer.",
   },
   nameRequiredProfile: {
     es: "El nombre no puede estar vacío",
@@ -1021,9 +1082,9 @@ export const translations: Translations = {
     fr: "Confirmation Finale",
   },
   typeDeleteConfirm: {
-    es: 'Escribe "ELIMINAR" para confirmar la eliminación de tu cuenta',
-    en: 'Type "DELETE" to confirm account deletion',
-    fr: 'Tapez "SUPPRIMER" pour confirmer la suppression de votre compte',
+    es: "¿Estás absolutamente seguro? Esta acción no se puede deshacer.",
+    en: "Are you absolutely sure? This action cannot be undone.",
+    fr: "Êtes-vous absolument sûr ? Cette action est irréversible.",
   },
   deletePermanently: {
     es: "Eliminar Definitivamente",
@@ -1140,6 +1201,11 @@ export const translations: Translations = {
     es: "Ingresa un monto mayor a 0",
     en: "Enter an amount greater than 0",
     fr: "Entrez un montant supérieur à 0",
+  },
+  amountTooLarge: {
+    es: "El monto ingresado es demasiado grande",
+    en: "The amount entered is too large",
+    fr: "Le montant entré est trop élevé",
   },
   couldNotRegister: {
     es: "No se pudo registrar el aporte",
@@ -1469,7 +1535,6 @@ export const t = (key: string, language?: Language): string => {
   const lang = language || currentLanguage;
   const translation = translations[key];
   if (!translation) {
-    console.warn(`Missing translation for key: ${key}`);
     return key;
   }
   return translation[lang] || translation.es || key;

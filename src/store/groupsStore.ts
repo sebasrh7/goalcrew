@@ -10,7 +10,14 @@ import {
   supabase,
   updateGroupApi,
 } from "../lib/supabase";
-import { CreateGroupInput, Group, GroupWithStats, GroupsState } from "../types";
+import {
+  Contribution,
+  CreateGroupInput,
+  Group,
+  GroupMember,
+  GroupWithStats,
+  GroupsState,
+} from "../types";
 
 /** Returns the number of days in one period for a given frequency */
 function getFrequencyDays(
@@ -45,12 +52,9 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        console.warn("⚠️ No authenticated user for fetchGroups");
         set({ groups: [] });
         return;
       }
-
-      console.log("📥 Fetching groups for user:", user.id);
 
       const { data, error } = await supabase
         .from("group_members")
@@ -69,27 +73,29 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
         .eq("user_id", user.id);
 
       if (error) {
-        console.error("❌ Error fetching groups:", error.message);
         throw error;
       }
 
       if (!data) {
-        console.log("📭 No groups found");
         set({ groups: [] });
         return;
       }
 
       const groups = data
-        .map((item: any) => item.group)
+        .map(
+          (item: Record<string, unknown>) =>
+            item.group as Record<string, unknown>,
+        )
         .filter(Boolean)
         .map(computeGroupStats);
 
-      console.log("✅ Groups fetched:", groups.length);
       set({ groups });
-    } catch (error: any) {
-      console.error("❌ fetchGroups error:", error.message);
-      // Don't throw - just log and set empty groups
-      set({ groups: [] });
+    } catch (error: unknown) {
+      // Keep existing groups on transient errors — only clear if we had none
+      const current = get().groups;
+      if (current.length === 0) {
+        set({ groups: [] });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -176,58 +182,85 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     }));
   },
 
-  updateGroup: async (groupId: string, updates: Record<string, any>) => {
-    await updateGroupApi(groupId, updates);
+  updateGroup: async (
+    groupId: string,
+    updates: Partial<
+      Pick<
+        Group,
+        | "name"
+        | "emoji"
+        | "deadline"
+        | "goal_amount"
+        | "frequency"
+        | "custom_frequency_days"
+      >
+    >,
+  ) => {
+    await updateGroupApi(groupId, {
+      ...updates,
+      custom_frequency_days: updates.custom_frequency_days ?? undefined,
+    });
     await get().fetchGroup(groupId);
     await get().fetchGroups();
   },
 }));
 
 // ─── Compute derived stats ────────────────────────────────────────────────────
-function computeGroupStats(raw: any): GroupWithStats {
-  const members = raw.members ?? [];
-  const contributions = raw.contributions ?? [];
+function computeGroupStats(raw: Record<string, unknown>): GroupWithStats {
+  const members = (raw.members ?? []) as GroupMember[];
+  const contributions = (raw.contributions ?? []) as Contribution[];
   const now = new Date();
-  const deadline = parseISO(raw.deadline);
+  const deadline = parseISO(raw.deadline as string);
 
   const daysRemaining = Math.max(0, differenceInDays(deadline, now));
   const totalDays = Math.max(
     1,
-    differenceInDays(deadline, parseISO(raw.created_at ?? raw.deadline)),
+    differenceInDays(
+      deadline,
+      parseISO((raw.created_at as string) ?? (raw.deadline as string)),
+    ),
   );
   const daysElapsed = totalDays - daysRemaining;
 
   const total_saved = members.reduce(
-    (sum: number, m: any) => sum + (m.current_amount ?? 0),
+    (sum: number, m: GroupMember) => sum + (m.current_amount ?? 0),
     0,
   );
   const total_goal = members.reduce(
-    (sum: number, m: any) => sum + (m.individual_goal ?? raw.goal_amount),
+    (sum: number, m: GroupMember) =>
+      sum + (m.individual_goal ?? (raw.goal_amount as number)),
     0,
   );
   const progress_percent =
     total_goal > 0 ? Math.round((total_saved / total_goal) * 100) : 0;
 
   const frequencyDays = getFrequencyDays(
-    raw.frequency,
-    raw.custom_frequency_days,
+    raw.frequency as string,
+    raw.custom_frequency_days as number | null,
   );
   const periodsRemaining =
     frequencyDays === 1
       ? daysRemaining
       : Math.ceil(daysRemaining / frequencyDays);
 
+  // Calculate per-period needed based on remaining goal, not total goal
+  const avgIndividualGoal =
+    members.length > 0
+      ? total_goal / members.length
+      : (raw.goal_amount as number);
+  const avgSaved = members.length > 0 ? total_saved / members.length : 0;
+  const remaining = Math.max(0, avgIndividualGoal - avgSaved);
   const per_period_needed =
     periodsRemaining > 0
-      ? Number((raw.goal_amount / (periodsRemaining + 1)).toFixed(2))
+      ? Number((remaining / periodsRemaining).toFixed(2))
       : 0;
 
   // Add computed status to each member
-  const membersWithStatus = members.map((m: any) => ({
+  const membersWithStatus = members.map((m: GroupMember) => ({
     ...m,
     status: getMemberStatus(
       m.current_amount,
-      m.individual_goal ?? raw.goal_amount,
+      m.individual_goal ?? (raw.goal_amount as number),
       daysElapsed,
       totalDays,
     ),
@@ -243,5 +276,5 @@ function computeGroupStats(raw: any): GroupWithStats {
     days_remaining: daysRemaining,
     per_period_needed,
     periods_remaining: periodsRemaining,
-  };
+  } as GroupWithStats;
 }

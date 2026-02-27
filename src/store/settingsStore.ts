@@ -19,12 +19,8 @@ export interface UserSettings {
     | "GBP";
   theme: "light" | "dark" | "auto";
   push_notifications: boolean;
-  email_notifications: boolean;
   contribution_reminders: boolean;
   achievement_notifications: boolean;
-  public_profile: boolean;
-  show_achievements: boolean;
-  show_stats: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -32,11 +28,13 @@ export interface UserSettings {
 interface SettingsStore {
   settings: UserSettings;
   isLoading: boolean;
+  needsCurrencySetup: boolean;
 
   // Actions
   loadSettings: () => Promise<void>;
   updateSettings: (newSettings: Partial<UserSettings>) => Promise<void>;
   resetSettings: () => void;
+  dismissCurrencySetup: () => void;
 }
 
 const defaultSettings: UserSettings = {
@@ -44,17 +42,14 @@ const defaultSettings: UserSettings = {
   currency: "USD",
   theme: "light",
   push_notifications: true,
-  email_notifications: true,
   contribution_reminders: true,
   achievement_notifications: true,
-  public_profile: true,
-  show_achievements: true,
-  show_stats: true,
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: defaultSettings,
   isLoading: false,
+  needsCurrencySetup: false,
 
   loadSettings: async () => {
     try {
@@ -64,12 +59,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        console.warn("⚠️ No user found for loadSettings");
         set({ settings: defaultSettings, isLoading: false });
         return;
       }
-
-      console.log("📥 Loading user settings for:", user.id);
 
       const { data, error } = await supabase
         .from("user_settings")
@@ -78,20 +70,21 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .single();
 
       if (error && error.code !== "PGRST116") {
-        console.error("❌ Error loading settings:", error);
         set({ settings: defaultSettings, isLoading: false });
         return;
       }
 
       if (!data) {
         // Create default settings for new user — auto-detect device locale
-        console.log("🆕 Creating default settings for new user");
         const detected = detectDeviceLocale();
+        console.log(
+          "[settings] New user — detected locale:",
+          JSON.stringify(detected),
+        );
         const autoSettings: Partial<UserSettings> = {
           language: detected.language,
           currency: detected.currency as UserSettings["currency"],
         };
-        console.log("🌍 Auto-detected settings:", autoSettings);
         changeLanguage(detected.language);
 
         const mergedDefaults = { ...defaultSettings, ...autoSettings };
@@ -105,65 +98,80 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           .single();
 
         if (createError) {
-          console.error("❌ Error creating settings:", createError);
           set({ settings: defaultSettings, isLoading: false });
           return;
         }
 
-        set({ settings: newSettings || mergedDefaults, isLoading: false });
+        set({
+          settings: newSettings || mergedDefaults,
+          isLoading: false,
+          needsCurrencySetup: true,
+        });
         return;
       }
 
-      console.log("✅ Settings loaded successfully");
       // Sync global language with loaded settings
       changeLanguage(data.language || "es");
+
       set({ settings: data, isLoading: false });
-    } catch (error: any) {
-      console.error("❌ Exception loading settings:", error);
+    } catch (error: unknown) {
       set({ settings: defaultSettings, isLoading: false });
     }
   },
 
   updateSettings: async (newSettings: Partial<UserSettings>) => {
-    try {
-      set({ isLoading: true });
+    // No usar isLoading aquí — eso es para la carga inicial.
+    // El componente maneja su propio isSaving.
+    const currentSettings = get().settings;
+    const updatedSettings = { ...currentSettings, ...newSettings };
 
+    // Optimistic update — UI refleja el cambio de inmediato
+    set({ settings: updatedSettings });
+
+    // Sincronizar idioma global de inmediato
+    if (newSettings.language) {
+      changeLanguage(newSettings.language);
+    }
+
+    try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) {
-        console.warn("⚠️ No user found for updateSettings");
-        set({ isLoading: false });
-        return;
-      }
-
-      const currentSettings = get().settings;
-      const updatedSettings = { ...currentSettings, ...newSettings };
-
-      console.log("📤 Updating settings:", newSettings);
+      if (!user) return;
 
       const { data, error } = await supabase
         .from("user_settings")
-        .update(newSettings)
-        .eq("user_id", user.id)
+        .upsert({ user_id: user.id, ...newSettings }, { onConflict: "user_id" })
         .select()
         .single();
 
       if (error) {
-        console.error("❌ Error updating settings:", error);
-        set({ isLoading: false });
-        return;
+        // Revertir al estado anterior si falla
+        set({ settings: currentSettings });
+        throw new Error(error.message || "SETTINGS_UPDATE_FAILED");
       }
 
-      console.log("✅ Settings updated successfully");
-      set({ settings: data || updatedSettings, isLoading: false });
-    } catch (error: any) {
-      console.error("❌ Exception updating settings:", error);
-      set({ isLoading: false });
+      // Sincronizar con lo que devolvió la BD
+      set({ settings: data || updatedSettings });
+    } catch (error: unknown) {
+      // Revertir idioma si falló
+      if (newSettings.language) {
+        changeLanguage(currentSettings.language);
+      }
+      set({ settings: currentSettings });
+      throw error;
     }
   },
 
+  dismissCurrencySetup: () => {
+    set({ needsCurrencySetup: false });
+  },
+
   resetSettings: () => {
-    set({ settings: defaultSettings, isLoading: false });
+    set({
+      settings: defaultSettings,
+      isLoading: false,
+      needsCurrencySetup: false,
+    });
   },
 }));

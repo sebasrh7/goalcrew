@@ -3,7 +3,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -13,8 +12,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AlertModal } from "../../src/components/AlertModal";
 import { Button } from "../../src/components/UI";
-import { Colors, FontSize, Spacing } from "../../src/constants";
+import {
+  Colors,
+  FontSize,
+  Spacing,
+  getErrorMessage,
+} from "../../src/constants";
 import { getCurrentLanguage, t } from "../../src/lib/i18n";
 import { supabase } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
@@ -64,6 +69,23 @@ export default function WelcomeScreen() {
   const lang = getCurrentLanguage();
   const SLIDES = getSlides();
 
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    icon?: string;
+    iconColor?: string;
+    buttons?: {
+      text: string;
+      onPress: () => void;
+      style?: "default" | "cancel" | "destructive";
+    }[];
+  }>({ visible: false, title: "" });
+
+  const dismissAlert = () =>
+    setAlertModal((prev) => ({ ...prev, visible: false }));
+
   const goNext = async () => {
     if (currentIndex < SLIDES.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
@@ -75,7 +97,7 @@ export default function WelcomeScreen() {
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         router.replace("/(tabs)");
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Check if user was actually created but session failed
         const {
           data: { session },
@@ -85,14 +107,23 @@ export default function WelcomeScreen() {
           return;
         }
 
-        Alert.alert(
-          t("loginError", lang),
-          error.message || t("loginErrorMsg", lang),
-          [
-            { text: t("retry", lang), onPress: goNext },
-            { text: t("cancel", lang), style: "cancel" },
+        setAlertModal({
+          visible: true,
+          title: t("loginError", lang),
+          message: getErrorMessage(error) || t("loginErrorMsg", lang),
+          icon: "alert-circle",
+          iconColor: Colors.red,
+          buttons: [
+            {
+              text: t("retry", lang),
+              onPress: () => {
+                dismissAlert();
+                goNext();
+              },
+            },
+            { text: t("cancel", lang), onPress: dismissAlert, style: "cancel" },
           ],
-        );
+        });
       }
     }
   };
@@ -190,12 +221,29 @@ export default function WelcomeScreen() {
         {currentIndex < SLIDES.length - 1 && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => setCurrentIndex(SLIDES.length - 1)}
+            onPress={() => {
+              const lastIndex = SLIDES.length - 1;
+              flatListRef.current?.scrollToIndex({
+                index: lastIndex,
+                animated: true,
+              });
+              setCurrentIndex(lastIndex);
+            }}
           >
             <Text style={styles.skipText}>{t("skip", lang)}</Text>
           </TouchableOpacity>
         )}
       </View>
+
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
+        iconColor={alertModal.iconColor}
+        onDismiss={dismissAlert}
+        buttons={alertModal.buttons ?? [{ text: "OK", onPress: dismissAlert }]}
+      />
     </SafeAreaView>
   );
 }

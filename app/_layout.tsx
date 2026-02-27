@@ -66,10 +66,18 @@ export default function RootLayout() {
     }
   }, [isLoading]);
 
+  // Navigate based on auth state changes (e.g. sign out, delete account)
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/(auth)/welcome");
+    }
+  }, [isAuthenticated, isLoading]);
+
   if (isLoading) return null;
 
-  // Use theme setting for status bar style
-  const statusBarStyle = settings?.theme === "dark" ? "light" : "dark";
+  // App always uses dark theme for now
+  const statusBarStyle = "light";
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -85,6 +93,10 @@ export default function RootLayout() {
           <Stack.Screen
             name="group/join"
             options={{ animation: "slide_from_bottom", presentation: "modal" }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ animation: "slide_from_right" }}
           />
         </Stack>
       </SafeAreaProvider>

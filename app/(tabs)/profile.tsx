@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { decode } from "base64-arraybuffer";
+import Constants from "expo-constants";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AchievementIcon } from "../../src/components/AchievementIcon";
+import { AlertModal, SelectModal } from "../../src/components/AlertModal";
 import { Avatar, Button, Card, SectionHeader } from "../../src/components/UI";
 import {
   ACHIEVEMENTS,
@@ -42,9 +44,50 @@ const DAYS_SHORT_I18N: Record<string, string[]> = {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut, updateProfile } = useAuthStore();
-  const { groups } = useGroupsStore();
+  const { groups, fetchGroups } = useGroupsStore();
   const { settings } = useSettingsStore();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    icon?: string;
+    iconColor?: string;
+    buttons?: {
+      text: string;
+      onPress: () => void;
+      style?: "default" | "cancel" | "destructive";
+    }[];
+  }>({ visible: false, title: "" });
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+
+  const showAlert = (
+    title: string,
+    message?: string,
+    options?: {
+      icon?: string;
+      iconColor?: string;
+      buttons?: {
+        text: string;
+        onPress: () => void;
+        style?: "default" | "cancel" | "destructive";
+      }[];
+    },
+  ) => {
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      icon: options?.icon,
+      iconColor: options?.iconColor,
+      buttons: options?.buttons,
+    });
+  };
+
+  const dismissAlert = () =>
+    setAlertModal((prev) => ({ ...prev, visible: false }));
 
   const lang = settings.language || "es";
   const DAYS_SHORT = DAYS_SHORT_I18N[lang] || DAYS_SHORT_I18N.es;
@@ -102,50 +145,85 @@ export default function ProfileScreen() {
     loadAchievements();
   }, [loadAchievements]);
 
-  // Build streak week dots based on actual current day
+  // Find the best member for streak info (last_contribution_date)
+  const bestStreakMember = useMemo(() => {
+    let best: {
+      streak_days: number;
+      last_contribution_date: string | null;
+    } | null = null;
+    for (const g of groups) {
+      const m = g.members?.find((m) => m.user_id === user?.id);
+      if (m && m.streak_days > (best?.streak_days ?? 0)) {
+        best = {
+          streak_days: m.streak_days,
+          last_contribution_date: m.last_contribution_date,
+        };
+      }
+    }
+    return best;
+  }, [groups, user?.id]);
+
+  // Build streak week dots based on actual current day and last contribution
   const streakDots = useMemo(() => {
     const today = new Date().getDay(); // 0=Sun, 1=Mon...6=Sat
     // Convert to Mon=0...Sun=6
     const todayIdx = today === 0 ? 6 : today - 1;
+
+    // Check if streak is currently active (contributed today or yesterday)
+    const lastDate = bestStreakMember?.last_contribution_date;
+    let streakEndIdx = -1; // no active streak
+    if (lastDate) {
+      const last = new Date(lastDate);
+      const now = new Date();
+      const diffDays = Math.floor(
+        (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (diffDays <= 1) {
+        // Streak is active — ends at today (or yesterday if not contributed today)
+        streakEndIdx = diffDays === 0 ? todayIdx : todayIdx - 1;
+      }
+    }
+
+    const activeDays =
+      streakEndIdx >= 0 ? Math.min(maxStreak, streakEndIdx + 1) : 0;
+
     return DAYS_SHORT.map((day, idx) => ({
       day,
-      done: idx <= todayIdx && idx > todayIdx - maxStreak,
+      done:
+        streakEndIdx >= 0 &&
+        idx <= streakEndIdx &&
+        idx > streakEndIdx - activeDays,
       isToday: idx === todayIdx,
     }));
-  }, [DAYS_SHORT, maxStreak]);
+  }, [DAYS_SHORT, maxStreak, bestStreakMember]);
 
   const handleSettings = () => {
     router.push("/settings");
   };
 
   const handleSignOut = () => {
-    Alert.alert(t("signOut", lang), t("signOutConfirm", lang), [
-      { text: t("cancel", lang), style: "cancel" },
-      {
-        text: t("signOutBtn", lang),
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/(auth)/welcome");
+    showAlert(t("signOut", lang), t("signOutConfirm", lang), {
+      icon: "log-out-outline",
+      iconColor: Colors.red,
+      buttons: [
+        { text: t("cancel", lang), onPress: dismissAlert, style: "cancel" },
+        {
+          text: t("signOutBtn", lang),
+          style: "destructive",
+          onPress: async () => {
+            dismissAlert();
+            await signOut();
+            router.replace("/(auth)/welcome");
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   if (!user) return null;
 
   const handleChangeAvatar = async () => {
-    Alert.alert(t("changePhoto", lang), t("selectPhotoSource", lang), [
-      {
-        text: t("camera", lang),
-        onPress: () => pickImage("camera"),
-      },
-      {
-        text: t("gallery", lang),
-        onPress: () => pickImage("gallery"),
-      },
-      { text: t("cancel", lang), style: "cancel" },
-    ]);
+    setShowPhotoModal(true);
   };
 
   const pickImage = async (source: "camera" | "gallery") => {
@@ -154,14 +232,20 @@ export default function ProfileScreen() {
       if (source === "camera") {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(t("error", lang), t("cameraPermission", lang));
+          showAlert(t("error", lang), t("cameraPermission", lang), {
+            icon: "alert-circle",
+            iconColor: Colors.red,
+          });
           return;
         }
       } else {
         const { status } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(t("error", lang), t("galleryPermission", lang));
+          showAlert(t("error", lang), t("galleryPermission", lang), {
+            icon: "alert-circle",
+            iconColor: Colors.red,
+          });
           return;
         }
       }
@@ -192,14 +276,16 @@ export default function ProfileScreen() {
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, decode(asset.base64), {
+        .upload(filePath, decode(asset.base64!), {
           contentType: mimeType,
           upsert: true,
         });
 
       if (uploadError) {
-        console.error("❌ Upload error:", uploadError);
-        Alert.alert(t("error", lang), t("uploadError", lang));
+        showAlert(t("error", lang), t("uploadError", lang), {
+          icon: "cloud-upload-outline",
+          iconColor: Colors.red,
+        });
         setIsUploadingAvatar(false);
         return;
       }
@@ -215,18 +301,40 @@ export default function ProfileScreen() {
       // Update user profile
       await updateProfile({ avatar_url: publicUrl });
       setIsUploadingAvatar(false);
-    } catch (error: any) {
-      console.error("❌ Avatar change error:", error);
-      Alert.alert(t("error", lang), t("uploadError", lang));
+    } catch (error: unknown) {
+      showAlert(t("error", lang), t("uploadError", lang), {
+        icon: "cloud-upload-outline",
+        iconColor: Colors.red,
+      });
       setIsUploadingAvatar(false);
     }
   };
 
   const allAchievements = Object.keys(ACHIEVEMENTS) as AchievementType[];
 
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchGroups();
+      await loadAchievements();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchGroups, loadAchievements]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.accent2}
+          />
+        }
+      >
         {/* Header gradient */}
         <LinearGradient
           colors={["#1a1555", Colors.bg]}
@@ -334,7 +442,7 @@ export default function ProfileScreen() {
                         : t("startToday", lang)}
                 </Text>
               </View>
-              <Text style={styles.streakBigEmoji}>
+              <View style={styles.streakBigEmoji}>
                 {Array.from({ length: Math.min(maxStreak, 7) }, (_, i) => (
                   <Ionicons
                     key={i}
@@ -343,7 +451,7 @@ export default function ProfileScreen() {
                     color={Colors.yellow}
                   />
                 ))}
-              </Text>
+              </View>
             </View>
             <View style={styles.streakDots}>
               {streakDots.map((d, i) => (
@@ -489,9 +597,36 @@ export default function ProfileScreen() {
             variant="danger"
             onPress={handleSignOut}
           />
-          <Text style={styles.version}>GoalCrew v1.0.0 · Made with 💜</Text>
+          <Text style={styles.version}>
+            GoalCrew v{Constants.expoConfig?.version ?? "1.0.0"} · Made with 💜
+          </Text>
         </View>
       </ScrollView>
+
+      <SelectModal
+        visible={showPhotoModal}
+        title={t("changePhoto", lang)}
+        options={[
+          { label: t("camera", lang), value: "camera" },
+          { label: t("gallery", lang), value: "gallery" },
+        ]}
+        selectedValue=""
+        onSelect={(value) => {
+          setShowPhotoModal(false);
+          pickImage(value as "camera" | "gallery");
+        }}
+        onClose={() => setShowPhotoModal(false)}
+      />
+
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
+        iconColor={alertModal.iconColor}
+        onDismiss={dismissAlert}
+        buttons={alertModal.buttons ?? [{ text: "OK", onPress: dismissAlert }]}
+      />
     </SafeAreaView>
   );
 }
@@ -614,7 +749,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   streakSub: { fontSize: FontSize.sm, color: Colors.text2, marginTop: 2 },
-  streakBigEmoji: { fontSize: FontSize.xl },
+  streakBigEmoji: { flexDirection: "row", gap: 2 },
   streakDots: { flexDirection: "row", gap: Spacing.sm },
   streakDot: {
     width: 34,

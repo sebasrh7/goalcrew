@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, ViewStyle } from "react-native";
 import { ACHIEVEMENTS } from "../constants";
 import { AchievementType } from "../types";
 
 interface AchievementIconProps {
   type: AchievementType;
   size?: number;
-  style?: any;
+  style?: ViewStyle;
 }
 
 export function AchievementIcon({

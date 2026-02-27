@@ -53,11 +53,15 @@ export async function registerForPushNotificationsAsync(): Promise<
 
   if (finalStatus !== "granted") return null;
 
-  // For development, use local notifications only.
-  // For production, replace with getExpoPushTokenAsync() or FCM.
-  const token = `dev-token-${Date.now()}`;
-  await savePushToken(token);
-  return token;
+  try {
+    const { data } = await Notifications.getExpoPushTokenAsync({
+      projectId: "4f25daa4-b37f-43cc-8b6f-02b753df72b7",
+    });
+    await savePushToken(data);
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Save push token to Supabase ──────────────────────────────────────────────
@@ -189,7 +193,7 @@ export async function notifyAchievement(
   lang?: Language,
 ): Promise<void> {
   const l = lang || getCurrentLanguage();
-  const titleKey = `achievement_${achievementType}_title` as any;
+  const titleKey = `achievement_${achievementType}_title`;
   const achievementName = t(titleKey, l) || achievementType;
   await scheduleNotification(
     `🏆 ${t("newAchievementUnlocked", l)}`,

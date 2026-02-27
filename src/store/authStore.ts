@@ -70,7 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Load user settings after successful auth
         const { loadSettings } = useSettingsStore.getState();
         await loadSettings();
-      } catch (profileError: any) {
+      } catch (profileError: unknown) {
         // Profile doesn't exist (deleted account re-signing in) — create it
         const newUser: Omit<User, "created_at"> & { created_at?: string } = {
           id: session.user.id,
@@ -108,7 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const { loadSettings } = useSettingsStore.getState();
         await loadSettings();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
     }
@@ -163,6 +163,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Reset local state and sign out
     const { resetSettings } = useSettingsStore.getState();
     resetSettings();
+
+    // Sign out from Google so account picker shows next time
+    try {
+      await GoogleSignin.revokeAccess();
+    } catch (_e) {
+      // Best-effort — revokeAccess removes cached tokens
+    }
+    try {
+      await GoogleSignin.signOut();
+    } catch (_e) {
+      // Best-effort
+    }
+
     await supabase.auth.signOut();
     set({ user: null, session: null, isAuthenticated: false });
   },
@@ -184,9 +197,14 @@ export function initAuthListener() {
         // Load user settings after profile is loaded
         const { loadSettings } = useSettingsStore.getState();
         await loadSettings();
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If profile not found (PGRST116 = 0 rows), the account was deleted — sign out
-        if (error?.code === "PGRST116") {
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          (error as { code: string }).code === "PGRST116"
+        ) {
           await supabase.auth.signOut();
           useAuthStore.setState({
             user: null,
@@ -241,7 +259,7 @@ export function initAuthListener() {
         // Load user settings
         const { loadSettings } = useSettingsStore.getState();
         await loadSettings();
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Profile missing — create it (re-sign-in after account deletion)
         const newUser: Omit<User, "created_at"> & { created_at?: string } = {
           id: session.user.id,
@@ -313,7 +331,7 @@ async function fetchProfile(userId: string): Promise<User> {
     if (!data) throw new Error("User profile not found");
 
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw error;
   }
 }

@@ -17,7 +17,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -27,6 +26,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AlertModal } from "../../src/components/AlertModal";
 import { Button, Card } from "../../src/components/UI";
 import {
   Colors,
@@ -34,8 +34,13 @@ import {
   Radius,
   Spacing,
   TRIP_ICONS,
+  getErrorMessage,
 } from "../../src/constants";
-import { CURRENCIES, formatCurrency } from "../../src/lib/currency";
+import {
+  CURRENCIES,
+  formatCurrency,
+  getPlaceholderAmount,
+} from "../../src/lib/currency";
 import { getFrequencyLabel, t } from "../../src/lib/i18n";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
@@ -49,7 +54,7 @@ export default function CreateScreen() {
 
   const [name, setName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState(TRIP_ICONS[0]);
-  const [goalAmount, setGoalAmount] = useState("250");
+  const [goalAmount, setGoalAmount] = useState("");
   const [deadlineDate, setDeadlineDate] = useState(() =>
     addDays(new Date(), 90),
   );
@@ -60,6 +65,32 @@ export default function CreateScreen() {
   const [frequency, setFrequency] = useState<FrequencyType>("weekly");
   const [customDays, setCustomDays] = useState("7");
   const [divisionType, setDivisionType] = useState<DivisionType>("equal");
+
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    icon?: string;
+    iconColor?: string;
+  }>({ visible: false, title: "" });
+
+  const showAlert = (
+    title: string,
+    message?: string,
+    options?: { icon?: string; iconColor?: string },
+  ) => {
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      icon: options?.icon,
+      iconColor: options?.iconColor,
+    });
+  };
+
+  const dismissAlert = () =>
+    setAlertModal((prev) => ({ ...prev, visible: false }));
 
   const currencySymbol = CURRENCIES[settings.currency]?.symbol || "$";
 
@@ -127,15 +158,24 @@ export default function CreateScreen() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert(t("nameRequired", lang), t("giveGoalName", lang));
+      showAlert(t("nameRequired", lang), t("giveGoalName", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
     if (!goalAmount || parseFloat(goalAmount) <= 0) {
-      Alert.alert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang));
+      showAlert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
       return;
     }
     if (calc.days < 7) {
-      Alert.alert(t("dateTooClose", lang), t("dateTooCloseMsg", lang));
+      showAlert(t("dateTooClose", lang), t("dateTooCloseMsg", lang), {
+        icon: "calendar",
+        iconColor: Colors.yellow,
+      });
       return;
     }
 
@@ -153,10 +193,11 @@ export default function CreateScreen() {
       };
       const group = await createGroup(input);
       router.replace(`/group/${group.id}`);
-    } catch (error: any) {
-      Alert.alert(
+    } catch (error: unknown) {
+      showAlert(
         t("error", lang),
-        error.message ?? t("couldNotCreateGoal", lang),
+        getErrorMessage(error) ?? t("couldNotCreateGoal", lang),
+        { icon: "alert-circle", iconColor: Colors.red },
       );
     }
   };
@@ -226,7 +267,7 @@ export default function CreateScreen() {
                 <Text style={styles.currencySymbol}>{currencySymbol}</Text>
                 <TextInput
                   style={styles.amountInput}
-                  placeholder="250"
+                  placeholder={getPlaceholderAmount(settings.currency)}
                   placeholderTextColor={Colors.text3}
                   value={goalAmount}
                   onChangeText={setGoalAmount}
@@ -505,6 +546,16 @@ export default function CreateScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
+        iconColor={alertModal.iconColor}
+        onDismiss={dismissAlert}
+        buttons={[{ text: "OK", onPress: dismissAlert }]}
+      />
     </SafeAreaView>
   );
 }
@@ -528,11 +579,23 @@ function CalcItem({
   );
 }
 
-function SummaryRow({ icon, iconColor, label, value, highlight }: any) {
+function SummaryRow({
+  icon,
+  iconColor,
+  label,
+  value,
+  highlight,
+}: {
+  icon: string;
+  iconColor?: string;
+  label: string;
+  value: string | number;
+  highlight?: boolean;
+}) {
   return (
     <View style={styles.summaryRow}>
       <Ionicons
-        name={icon}
+        name={icon as any}
         size={16}
         color={iconColor || Colors.text2}
         style={styles.summaryIcon}
