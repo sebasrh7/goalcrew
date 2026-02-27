@@ -956,6 +956,11 @@ export const translations: Translations = {
     en: "Confirm",
     fr: "Confirmer",
   },
+  ok: {
+    es: "Aceptar",
+    en: "OK",
+    fr: "OK",
+  },
   editProfileSoon: {
     es: "Editar perfil próximamente disponible",
     en: "Edit profile coming soon",
@@ -1111,6 +1116,21 @@ export const translations: Translations = {
     en: "Made with 💜 for travelers",
     fr: "Fait avec 💜 pour les voyageurs",
   },
+  errorBoundaryTitle: {
+    es: "Algo salió mal",
+    en: "Something went wrong",
+    fr: "Une erreur est survenue",
+  },
+  errorBoundaryMessage: {
+    es: "La app encontró un error inesperado. Intenta reiniciarla.",
+    en: "The app encountered an unexpected error. Try restarting it.",
+    fr: "L'app a rencontré une erreur inattendue. Essayez de la redémarrer.",
+  },
+  errorBoundaryRetry: {
+    es: "Reintentar",
+    en: "Try Again",
+    fr: "Réessayer",
+  },
   notificationsEnabled: {
     es: "¡Notificaciones activadas!",
     en: "Notifications enabled!",
@@ -1218,9 +1238,9 @@ export const translations: Translations = {
     fr: "Code copié",
   },
   joinShareMessage: {
-    es: "¡Únete a nuestro grupo de ahorro",
-    en: "Join our savings group",
-    fr: "Rejoignez notre groupe d'épargne",
+    es: "¡Únete a nuestro grupo de ahorro en GoalCrew!",
+    en: "Join our savings group on GoalCrew!",
+    fr: "Rejoignez notre groupe d'épargne sur GoalCrew !",
   },
   joinShareTitle: {
     es: "Únete a",

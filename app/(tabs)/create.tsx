@@ -554,7 +554,7 @@ export default function CreateScreen() {
         icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
         iconColor={alertModal.iconColor}
         onDismiss={dismissAlert}
-        buttons={[{ text: "OK", onPress: dismissAlert }]}
+        buttons={[{ text: t("ok", lang), onPress: dismissAlert }]}
       />
     </SafeAreaView>
   );

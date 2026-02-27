@@ -241,7 +241,9 @@ export default function JoinGroupScreen() {
         icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
         iconColor={alertModal.iconColor}
         onDismiss={dismissAlert}
-        buttons={alertModal.buttons ?? [{ text: "OK", onPress: dismissAlert }]}
+        buttons={
+          alertModal.buttons ?? [{ text: t("ok", lang), onPress: dismissAlert }]
+        }
       />
     </SafeAreaView>
   );

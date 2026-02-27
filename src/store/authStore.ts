@@ -6,8 +6,10 @@ import { useSettingsStore } from "./settingsStore";
 
 // Configure Google Sign-In
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
 GoogleSignin.configure({
   webClientId: googleWebClientId,
+  iosClientId: googleIosClientId || undefined,
   scopes: ["openid", "profile", "email"],
 });
 
@@ -72,13 +74,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await loadSettings();
       } catch (profileError: unknown) {
         // Profile doesn't exist (deleted account re-signing in) — create it
+        const email = session.user.email ?? "";
         const newUser: Omit<User, "created_at"> & { created_at?: string } = {
           id: session.user.id,
-          email: session.user.email!,
+          email,
           name:
             session.user.user_metadata?.full_name ||
             session.user.user_metadata?.name ||
-            session.user.email!.split("@")[0],
+            email.split("@")[0] ||
+            "User",
           avatar_url: session.user.user_metadata?.avatar_url || null,
         };
 
@@ -182,7 +186,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // ─── Initialize auth listener ─────────────────────────────────────────────────
-export function initAuthListener() {
+export function initAuthListener(): () => void {
   supabase.auth.getSession().then(async ({ data: { session } }) => {
     if (session?.user) {
       try {
@@ -216,13 +220,15 @@ export function initAuthListener() {
         }
 
         // Fallback: use session data
+        const email = session.user.email ?? "";
         const fallbackUser: User = {
           id: session.user.id,
-          email: session.user.email!,
+          email,
           name:
             session.user.user_metadata?.full_name ||
             session.user.user_metadata?.name ||
-            session.user.email!.split("@")[0],
+            email.split("@")[0] ||
+            "User",
           avatar_url: session.user.user_metadata?.avatar_url || null,
           created_at: session.user.created_at,
         };
@@ -242,10 +248,12 @@ export function initAuthListener() {
     }
   });
 
-  supabase.auth.onAuthStateChange(async (event, session) => {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(async (event, session) => {
     if (event === "SIGNED_IN" && session?.user) {
-      // Add a delay to ensure session is fully propagated in Supabase client
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Brief delay to ensure session is propagated in Supabase client
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       try {
         const profile = await fetchProfile(session.user.id);
@@ -261,13 +269,15 @@ export function initAuthListener() {
         await loadSettings();
       } catch (error: unknown) {
         // Profile missing — create it (re-sign-in after account deletion)
+        const email = session.user.email ?? "";
         const newUser: Omit<User, "created_at"> & { created_at?: string } = {
           id: session.user.id,
-          email: session.user.email!,
+          email,
           name:
             session.user.user_metadata?.full_name ||
             session.user.user_metadata?.name ||
-            session.user.email!.split("@")[0],
+            email.split("@")[0] ||
+            "User",
           avatar_url: session.user.user_metadata?.avatar_url || null,
         };
 
@@ -309,6 +319,10 @@ export function initAuthListener() {
       });
     }
   });
+
+  return () => {
+    subscription.unsubscribe();
+  };
 }
 
 async function fetchProfile(userId: string): Promise<User> {

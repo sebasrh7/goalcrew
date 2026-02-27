@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { changeLanguage } from "../src/lib/i18n";
 import {
   addNotificationListeners,
@@ -23,7 +24,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     // Initialize Supabase auth listener
-    initAuthListener();
+    const cleanup = initAuthListener();
+    return cleanup;
   }, []);
 
   useEffect(() => {
@@ -58,7 +60,12 @@ export default function RootLayout() {
     return () => {
       notifCleanup.current?.();
     };
-  }, [isAuthenticated]);
+  }, [
+    isAuthenticated,
+    settings.push_notifications,
+    settings.contribution_reminders,
+    settings.language,
+  ]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -80,26 +87,31 @@ export default function RootLayout() {
   const statusBarStyle = "light";
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style={statusBarStyle} />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
-          <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
-          <Stack.Screen
-            name="group/[id]"
-            options={{ animation: "slide_from_right" }}
-          />
-          <Stack.Screen
-            name="group/join"
-            options={{ animation: "slide_from_bottom", presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{ animation: "slide_from_right" }}
-          />
-        </Stack>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style={statusBarStyle} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
+            <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
+            <Stack.Screen
+              name="group/[id]"
+              options={{ animation: "slide_from_right" }}
+            />
+            <Stack.Screen
+              name="group/join"
+              options={{
+                animation: "slide_from_bottom",
+                presentation: "modal",
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{ animation: "slide_from_right" }}
+            />
+          </Stack>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

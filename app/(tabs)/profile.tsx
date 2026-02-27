@@ -598,7 +598,8 @@ export default function ProfileScreen() {
             onPress={handleSignOut}
           />
           <Text style={styles.version}>
-            GoalCrew v{Constants.expoConfig?.version ?? "1.0.0"} · Made with 💜
+            GoalCrew v{Constants.expoConfig?.version ?? "1.0.0"} ·{" "}
+            {t("madeWithLove", lang)}
           </Text>
         </View>
       </ScrollView>
@@ -625,7 +626,9 @@ export default function ProfileScreen() {
         icon={alertModal.icon as keyof typeof Ionicons.glyphMap}
         iconColor={alertModal.iconColor}
         onDismiss={dismissAlert}
-        buttons={alertModal.buttons ?? [{ text: "OK", onPress: dismissAlert }]}
+        buttons={
+          alertModal.buttons ?? [{ text: t("ok", lang), onPress: dismissAlert }]
+        }
       />
     </SafeAreaView>
   );

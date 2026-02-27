@@ -15,14 +15,18 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.goalcrew.app"
+      "bundleIdentifier": "com.goalcrew.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b0f1a"
       },
-      "package": "com.goalcrew.app"
+      "package": "com.goalcrew.app",
+      "permissions": []
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +51,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.803759521905-es63ftjlvu5ugi4sot4johes0bthdq4b"
+          "iosUrlScheme": "com.googleusercontent.apps.803759521905-nhf663l36l8gsirbb65rbrmpiqsvekhp"
         }
       ],
       "expo-localization"

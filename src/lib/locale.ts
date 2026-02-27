@@ -82,8 +82,6 @@ export function detectDeviceLocale(): DetectedLocale {
     const locales = getLocales();
     const primaryLocale = locales[0];
 
-    console.log("[locale] getLocales() full:", JSON.stringify(locales));
-
     if (!primaryLocale) {
       return {
         language: "es",
@@ -165,16 +163,9 @@ export function detectDeviceLocale(): DetectedLocale {
       }
     }
 
-    console.log("[locale] detected:", {
-      language,
-      currency,
-      region,
-      langCode,
-      deviceCurrency,
-    });
     return { language, currency, region, languageCode: langCode };
   } catch (error) {
-    console.error("[locale] detection error:", error);
+    // Silent fallback for production
     return {
       language: "es",
       currency: "USD",

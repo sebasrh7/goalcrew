@@ -77,10 +77,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       if (!data) {
         // Create default settings for new user — auto-detect device locale
         const detected = detectDeviceLocale();
-        console.log(
-          "[settings] New user — detected locale:",
-          JSON.stringify(detected),
-        );
         const autoSettings: Partial<UserSettings> = {
           language: detected.language,
           currency: detected.currency as UserSettings["currency"],

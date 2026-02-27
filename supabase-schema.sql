@@ -68,7 +68,9 @@ create table public.groups (
   division_type         division_type default 'equal' not null,
   invite_code           text unique not null,
   created_by            uuid references public.users(id) on delete set null,
-  created_at            timestamptz default now() not null
+  total_saved           numeric default 0 not null,
+  created_at            timestamptz default now() not null,
+  updated_at            timestamptz default now() not null
 );
 
 -- ─── GROUP MEMBERS TABLE ──────────────────────────────────────────────────────
@@ -151,6 +153,10 @@ create trigger handle_user_settings_updated_at
 
 create trigger handle_push_tokens_updated_at
   before update on public.push_tokens
+  for each row execute function public.handle_updated_at();
+
+create trigger handle_groups_updated_at
+  before update on public.groups
   for each row execute function public.handle_updated_at();
 
 -- ─── FUNCTIONS & RPCs ─────────────────────────────────────────────────────────

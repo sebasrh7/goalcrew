@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { CURRENCIES } from "../lib/currency";
 import { notifyAchievement, notifyGoalCompleted } from "../lib/notifications";
 import {
   addContribution as apiAdd,
@@ -139,16 +140,8 @@ async function checkAndUnlockAchievements(
 
   // Big saver — scale threshold by currency scale
   // Default $100 USD equivalent; for COP (scale 4000) that's ~400,000 COP, etc.
-  const currencyScale = (() => {
-    try {
-      const { CURRENCIES } = require("../lib/currency");
-      const settings =
-        require("./settingsStore").useSettingsStore.getState().settings;
-      return CURRENCIES[settings?.currency]?.scale ?? 1;
-    } catch {
-      return 1;
-    }
-  })();
+  const userCurrency = useSettingsStore.getState().settings?.currency;
+  const currencyScale = CURRENCIES[userCurrency]?.scale ?? 1;
   const bigSaverThreshold = 100 * currencyScale;
   if (amount >= bigSaverThreshold) toUnlock.push("big_saver");
 

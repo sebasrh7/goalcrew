@@ -215,7 +215,7 @@ export default function GroupScreen() {
     if (!currentGroup) return;
     try {
       await Share.share({
-        message: `${t("joinShareMessage", lang)} "${currentGroup.name}" en GoalCrew!\n\n${t("code", lang)}: ${currentGroup.invite_code}\n\n${t("downloadApp", lang)} https://goalcrew.app`,
+        message: `${t("joinShareMessage", lang)} "${currentGroup.name}"\n\n${t("code", lang)}: ${currentGroup.invite_code}\n\n${t("downloadApp", lang)} https://goalcrew.app`,
         title: `${t("joinShareTitle", lang)} ${currentGroup.name}`,
       });
     } catch {
