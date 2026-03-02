@@ -1,5 +1,5 @@
 import { differenceInDays, parseISO } from "date-fns";
-import { create } from "zustand";
+import { create } from "zustand/index";
 import { getMemberStatus } from "../constants";
 import {
   createGroup as apiCreateGroup,

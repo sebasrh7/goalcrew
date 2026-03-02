@@ -48,9 +48,15 @@ export default function RootLayout() {
     // Setup notification listeners
     notifCleanup.current = addNotificationListeners(
       undefined, // onReceived — handled by handler
-      (response) => {
+      (response: unknown) => {
         // Navigate to the relevant screen when user taps a notification
-        const data = response.notification.request.content.data;
+        const data = (
+          response as {
+            notification?: {
+              request?: { content?: { data?: Record<string, string> } };
+            };
+          }
+        )?.notification?.request?.content?.data;
         if (data?.groupId) {
           router.push(`/group/${data.groupId}`);
         }

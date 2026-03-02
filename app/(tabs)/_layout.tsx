@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, Tabs } from "expo-router";
-import { StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../src/constants";
 import { t } from "../../src/lib/i18n";
@@ -105,11 +105,18 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   createBtnActive: {
-    shadowColor: Colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: `0 4px 8px rgba(108, 99, 255, 0.4)`,
+      },
+      default: {
+        shadowColor: Colors.accent,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 8,
+      },
+    }),
   },
   createBtnGradient: {
     flex: 1,

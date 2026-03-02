@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
 import { enUS, es, fr } from "date-fns/locale";
-import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Colors, FontSize, Radius, Spacing, TRIP_ICONS } from "../constants";
 import { formatCurrency } from "../lib/currency";
+import { impactAsync } from "../lib/haptics";
 import { useTranslation } from "../lib/i18n";
 import { useSettingsStore } from "../store/settingsStore";
 import { GroupWithStats } from "../types";
@@ -22,7 +22,7 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
   const { t } = useTranslation();
 
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactAsync("Light");
     onPress();
   };
 

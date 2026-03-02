@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
@@ -13,6 +12,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { impactAsync } from "../lib/haptics";
 import { Language, t as _t } from "../lib/i18n";
 import { MemberStatus } from "../types";
 
@@ -40,7 +40,7 @@ export function Button({
   style,
 }: ButtonProps) {
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactAsync("Light");
     onPress();
   };
 
@@ -492,4 +492,3 @@ const styles = StyleSheet.create({
 
 // ─── AchievementIcon Export ──────────────────────────────────────────────────
 export { AchievementIcon } from "./AchievementIcon";
-

@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from "zustand/index";
 import { changeLanguage } from "../lib/i18n";
 import { detectDeviceLocale } from "../lib/locale";
 import { supabase } from "../lib/supabase";

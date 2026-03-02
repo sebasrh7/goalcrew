@@ -18,6 +18,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -469,7 +470,7 @@ export default function CreateScreen() {
             style={styles.calendarSheet}
             onStartShouldSetResponder={() => true}
           >
-            <View style={styles.calendarHandle} />
+            {Platform.OS !== "web" && <View style={styles.calendarHandle} />}
             {/* Month navigation */}
             <View style={styles.calendarNav}>
               <TouchableOpacity
@@ -523,22 +524,26 @@ export default function CreateScreen() {
                 return (
                   <TouchableOpacity
                     key={day.toISOString()}
-                    style={[
-                      styles.calendarDayCell,
-                      selected && styles.calendarDaySelected,
-                    ]}
+                    style={styles.calendarDayCell}
                     onPress={() => !disabled && selectDate(day)}
                     disabled={disabled}
                   >
-                    <Text
+                    <View
                       style={[
-                        styles.calendarDayText,
-                        disabled && { color: Colors.text3, opacity: 0.4 },
-                        selected && styles.calendarDayTextSelected,
+                        styles.calendarDayBadge,
+                        selected && styles.calendarDaySelected,
                       ]}
                     >
-                      {day.getDate()}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          disabled && { color: Colors.text3, opacity: 0.4 },
+                          selected && styles.calendarDayTextSelected,
+                        ]}
+                      >
+                        {day.getDate()}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -800,15 +805,33 @@ const styles = StyleSheet.create({
   // Calendar modal styles
   calendarOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(2,6,16,0.72)",
+    justifyContent: Platform.OS === "web" ? "center" : "flex-end",
+    alignItems: Platform.OS === "web" ? "center" : undefined,
   },
   calendarSheet: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
+    ...(Platform.OS === "web"
+      ? {
+          borderBottomLeftRadius: Radius.xxl,
+          borderBottomRightRadius: Radius.xxl,
+          width: "90%",
+          maxWidth: 430,
+          maxHeight: "80%",
+          borderWidth: 1,
+          borderColor: "rgba(108,99,255,0.25)",
+        }
+      : {}),
     padding: Spacing.xl,
     paddingBottom: 40,
+    ...Platform.select({
+      web: {
+        boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
+      },
+      default: {},
+    }),
   },
   calendarHandle: {
     width: 40,
@@ -839,7 +862,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: FontSize.xs,
     fontWeight: "700",
-    color: Colors.text3,
+    color: Colors.text2,
   },
   calendarGrid: {
     flexDirection: "row",
@@ -851,14 +874,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  calendarDayBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   calendarDayText: {
     fontSize: FontSize.base,
-    fontWeight: "600",
+    fontWeight: "700",
     color: Colors.text,
   },
   calendarDaySelected: {
     backgroundColor: Colors.accent,
-    borderRadius: Radius.full,
   },
   calendarDayTextSelected: {
     color: "#FFFFFF",

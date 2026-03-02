@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -327,6 +328,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -335,6 +337,7 @@ export default function ProfileScreen() {
           />
         }
       >
+        <View style={styles.webContent}>
         {/* Header gradient */}
         <LinearGradient
           colors={["#1a1555", Colors.bg]}
@@ -428,7 +431,7 @@ export default function ProfileScreen() {
         <View style={{ paddingHorizontal: Spacing.xl }}>
           <Card>
             <View style={styles.streakRow}>
-              <View>
+              <View style={styles.streakTextBlock}>
                 <Text style={styles.streakNumber}>
                   {maxStreak} {t("days", lang)}
                 </Text>
@@ -507,14 +510,18 @@ export default function ProfileScreen() {
                 >
                   {getAchievementText(type, lang).title}
                 </Text>
-                {!earned && (
-                  <Ionicons
-                    name="lock-closed"
-                    size={12}
-                    color={Colors.text3}
-                    style={styles.medalLockIcon}
-                  />
-                )}
+                <View style={styles.medalStateRow}>
+                  {!earned ? (
+                    <Ionicons
+                      name="lock-closed"
+                      size={12}
+                      color={Colors.text3}
+                      style={styles.medalLockIcon}
+                    />
+                  ) : (
+                    <View style={styles.medalLockPlaceholder} />
+                  )}
+                </View>
               </View>
             );
           })}
@@ -602,15 +609,20 @@ export default function ProfileScreen() {
             {t("madeWithLove", lang)}
           </Text>
         </View>
+        </View>
       </ScrollView>
 
       <SelectModal
         visible={showPhotoModal}
         title={t("changePhoto", lang)}
-        options={[
-          { label: t("camera", lang), value: "camera" },
-          { label: t("gallery", lang), value: "gallery" },
-        ]}
+        options={
+          Platform.OS === "web"
+            ? [{ label: t("gallery", lang), value: "gallery" }]
+            : [
+                { label: t("camera", lang), value: "camera" },
+                { label: t("gallery", lang), value: "gallery" },
+              ]
+        }
         selectedValue=""
         onSelect={(value) => {
           setShowPhotoModal(false);
@@ -653,6 +665,12 @@ function StatCard({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
+  scrollContent: { paddingBottom: Spacing.xl },
+  webContent: {
+    width: "100%",
+    maxWidth: Platform.OS === "web" ? 980 : undefined,
+    alignSelf: "center",
+  },
   headerGradient: { paddingBottom: Spacing.xl },
   profileHero: {
     alignItems: "center",
@@ -746,14 +764,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: Spacing.lg,
   },
+  streakTextBlock: {
+    alignItems: "center",
+    flex: 1,
+  },
   streakNumber: {
     fontSize: FontSize.xxl,
     fontWeight: "900",
     color: Colors.text,
+    textAlign: "center",
   },
-  streakSub: { fontSize: FontSize.sm, color: Colors.text2, marginTop: 2 },
+  streakSub: {
+    fontSize: FontSize.sm,
+    color: Colors.text2,
+    marginTop: 2,
+    textAlign: "center",
+  },
   streakBigEmoji: { flexDirection: "row", gap: 2 },
-  streakDots: { flexDirection: "row", gap: Spacing.sm },
+  streakDots: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "center",
+  },
   streakDot: {
     width: 34,
     height: 34,
@@ -770,9 +802,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
+    justifyContent: "space-between",
   },
   medalCard: {
-    width: "30%",
+    width: Platform.OS === "web" ? "31.5%" : "30%",
     backgroundColor: Colors.surface2,
     borderRadius: Radius.md,
     padding: Spacing.md,
@@ -791,9 +824,17 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     textAlign: "center",
     lineHeight: 14,
+    minHeight: 28,
   },
   medalLockedText: { opacity: 0.5 },
-  medalLockIcon: { marginTop: 4, opacity: 0.5 },
+  medalStateRow: {
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  medalLockIcon: { opacity: 0.5 },
+  medalLockPlaceholder: { width: 12, height: 12 },
   version: {
     textAlign: "center",
     fontSize: FontSize.xs,

@@ -7,6 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "web:build": "expo export --platform web",
+    "build:apk": "eas build --platform android --profile preview",
     "build:preview": "eas build --profile preview",
     "build:production": "eas build --profile production"
   },
@@ -55,7 +57,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.0",
+    "@babel/core": "~7.24.7",
     "@types/react": "^19.2.14",
     "babel-plugin-module-resolver": "^5.0.2",
     "typescript": "^5.9.3"

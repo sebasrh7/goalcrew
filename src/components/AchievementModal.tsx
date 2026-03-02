@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import {
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { ACHIEVEMENTS, Colors, Radius, Spacing } from "../constants";
+import { notificationAsync } from "../lib/haptics";
 import { getAchievementText, t } from "../lib/i18n";
 import { useSettingsStore } from "../store/settingsStore";
 import { AchievementType } from "../types";
@@ -28,7 +28,7 @@ export function AchievementModal({
 
   useEffect(() => {
     if (achievementType) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notificationAsync("Success");
 
       Animated.parallel([
         Animated.spring(scaleAnim, {

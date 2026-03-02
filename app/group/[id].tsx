@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
 import { enUS, es, fr } from "date-fns/locale";
 import * as Clipboard from "expo-clipboard";
-import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -44,6 +43,7 @@ import {
   formatCurrency,
   getQuickAmounts,
 } from "../../src/lib/currency";
+import { notificationAsync } from "../../src/lib/haptics";
 import { getFrequencyPeriodLabel, t } from "../../src/lib/i18n";
 import { subscribeToGroup } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
@@ -201,7 +201,7 @@ export default function GroupScreen() {
     try {
       await addContribution(id!, amount, contribNote || undefined);
       closeContribModal();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notificationAsync("Success");
     } catch (error: unknown) {
       showAlert(
         t("error", lang),
@@ -215,7 +215,7 @@ export default function GroupScreen() {
     if (!currentGroup) return;
     try {
       await Share.share({
-        message: `${t("joinShareMessage", lang)} "${currentGroup.name}"\n\n${t("code", lang)}: ${currentGroup.invite_code}\n\n${t("downloadApp", lang)} https://goalcrew.app`,
+        message: `${t("joinShareMessage", lang)} "${currentGroup.name}"\n\n${t("code", lang)}: ${currentGroup.invite_code}`,
         title: `${t("joinShareTitle", lang)} ${currentGroup.name}`,
       });
     } catch {
@@ -248,7 +248,7 @@ export default function GroupScreen() {
     try {
       await updateMemberGoal(id!, amount);
       setShowEditGoalModal(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notificationAsync("Success");
     } catch (error: unknown) {
       showAlert(
         t("error", lang),
@@ -280,9 +280,7 @@ export default function GroupScreen() {
             dismissAlert();
             try {
               await leaveGroup(id!);
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success,
-              );
+              notificationAsync("Success");
               router.replace("/(tabs)");
             } catch (error: unknown) {
               if (getErrorMessage(error) === "CREATOR_CANNOT_LEAVE") {
@@ -316,9 +314,7 @@ export default function GroupScreen() {
             dismissAlert();
             try {
               await deleteGroup(id!);
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success,
-              );
+              notificationAsync("Success");
               router.replace("/(tabs)");
             } catch (error: unknown) {
               showAlert(t("error", lang), getErrorMessage(error), {
@@ -359,7 +355,7 @@ export default function GroupScreen() {
         goal_amount: parseFloat(editGroupGoal) || currentGroup!.goal_amount,
       });
       setShowEditGroupModal(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notificationAsync("Success");
     } catch (error: unknown) {
       showAlert(t("error", lang), getErrorMessage(error), {
         icon: "alert-circle",
@@ -386,9 +382,7 @@ export default function GroupScreen() {
               dismissAlert();
               try {
                 await deleteContribution(contribId, id!);
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success,
-                );
+                notificationAsync("Success");
               } catch (error: unknown) {
                 showAlert(t("error", lang), getErrorMessage(error), {
                   icon: "alert-circle",
@@ -428,7 +422,7 @@ export default function GroupScreen() {
         note: editContribNote || undefined,
       });
       setShowEditContribModal(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notificationAsync("Success");
     } catch (error: unknown) {
       showAlert(t("error", lang), getErrorMessage(error), {
         icon: "alert-circle",
