@@ -1,5 +1,5 @@
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import { create } from "zustand/index";
+import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import { AuthState, User } from "../types";
 import { useSettingsStore } from "./settingsStore";

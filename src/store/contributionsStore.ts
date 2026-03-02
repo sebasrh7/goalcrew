@@ -1,4 +1,4 @@
-import { create } from "zustand/index";
+import { create } from "zustand";
 import { CURRENCIES } from "../lib/currency";
 import { notifyAchievement, notifyGoalCompleted } from "../lib/notifications";
 import {
