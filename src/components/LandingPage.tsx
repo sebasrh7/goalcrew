@@ -16,7 +16,7 @@ import { getCurrentLanguage, t } from "../lib/i18n";
 
 // ─── Config: update these with your real URLs ────────────────────────────────
 const DOWNLOAD_LINKS = {
-  apk: "https://expo.dev/accounts/sebasrh7/projects/goalcrew/builds/495fc1fc-d62c-4ba8-9822-977cd27ebe0f",
+  apk: "https://expo.dev/accounts/sebasrh7/projects/goalcrew/builds/600a21ee-0d6c-49e1-9182-451ba644091a",
   webApp: "/(auth)/welcome", // internal route
 };
 
