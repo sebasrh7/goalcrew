@@ -1,71 +1,83 @@
-# GoalCrew 🏖️
+# GoalCrew
 
-**Ahorra en grupo, viaja juntos.** App móvil de ahorro grupal con gamificación para cumplir metas antes de una fecha.
-
----
-
-## 🚀 Stack
-
-| Capa | Tecnología |
-|------|-----------|
-| Frontend | React Native + Expo (SDK 51) |
-| Routing | Expo Router (file-based) |
-| Backend | Supabase (Auth + DB + Realtime) |
-| Estado global | Zustand |
-| Animaciones | React Native Reanimated |
-| Build/Deploy | Expo EAS |
+**Ahorra en grupo, logra tus metas.** App de ahorro grupal con gamificación, disponible en Android (APK), Web y iPhone (vía Safari).
 
 ---
 
-## 📁 Estructura del proyecto
+## Stack
+
+| Capa        | Tecnología                            |
+| ----------- | ------------------------------------- |
+| Frontend    | React Native + Expo SDK 54            |
+| Routing     | Expo Router 6 (file-based)            |
+| Backend     | Supabase (Auth + DB + Realtime + RLS) |
+| Estado      | Zustand 4                             |
+| Auth        | Google OAuth (native + web)           |
+| Plataformas | Android, Web, iPhone (PWA)            |
+| Deploy Web  | Vercel                                |
+| Build APK   | EAS Build                             |
+
+---
+
+## Estructura
 
 ```
 goalcrew/
-├── app/                          # Expo Router - rutas como archivos
+├── app/
 │   ├── _layout.tsx               # Root layout + auth guard
-│   ├── index.tsx                 # Redirect inicial
-│   ├── (auth)/                   # Rutas sin autenticar
+│   ├── index.tsx                 # Redirect auth/tabs
+│   ├── (auth)/
 │   │   ├── _layout.tsx
-│   │   ├── welcome.tsx           # Onboarding (3 slides)
-│   │   ├── login.tsx
-│   │   └── register.tsx
-│   ├── (tabs)/                   # Rutas con bottom tab nav
-│   │   ├── _layout.tsx           # Tab bar config
-│   │   ├── index.tsx             # 🏠 Home — mis metas
-│   │   ├── create.tsx            # ➕ Crear meta grupal
-│   │   └── profile.tsx           # 👤 Perfil + medallas
-│   └── group/
-│       ├── [id].tsx              # 👥 Vista del grupo (principal)
-│       └── join.tsx              # 🔗 Unirse por código
+│   │   └── welcome.tsx           # Onboarding carousel + Google sign-in
+│   ├── (tabs)/
+│   │   ├── _layout.tsx           # Bottom tab nav
+│   │   ├── index.tsx             # Home — mis grupos
+│   │   ├── create.tsx            # Crear grupo de ahorro
+│   │   └── profile.tsx           # Perfil, rachas, logros
+│   ├── group/
+│   │   ├── [id].tsx              # Detalle del grupo
+│   │   └── join.tsx              # Unirse por código o QR
+│   └── settings.tsx              # Configuración
 │
 ├── src/
 │   ├── components/
-│   │   ├── UI.tsx                # Button, Card, Avatar, ProgressBar, etc.
-│   │   ├── GroupCard.tsx         # Tarjeta de meta en el home
-│   │   ├── MemberRow.tsx         # Fila de miembro (members + ranking)
-│   │   └── AchievementModal.tsx  # Modal animado de medalla
+│   │   ├── UI.tsx                # Button, Card, StatusPill, etc.
+│   │   ├── GroupCard.tsx         # Tarjeta de grupo en home
+│   │   ├── MemberRow.tsx         # Fila de miembro
+│   │   ├── AchievementModal.tsx  # Modal de logro desbloqueado
+│   │   ├── AlertModal.tsx        # Alert modal multiplataforma
+│   │   ├── InviteQRModal.tsx     # QR de código de invitación
+│   │   ├── LandingPage.tsx       # Landing page para web
+│   │   └── ErrorBoundary.tsx     # Error boundary
 │   ├── store/
-│   │   ├── authStore.ts          # Zustand: auth state
-│   │   ├── groupsStore.ts        # Zustand: grupos + stats calculadas
-│   │   └── contributionsStore.ts # Zustand: aportes + lógica de achievements
+│   │   ├── authStore.ts          # Auth (switch native/web)
+│   │   ├── authStore.native.ts   # Google Sign-In nativo
+│   │   ├── authStore.web.ts      # Google OAuth web redirect
+│   │   ├── groupsStore.ts        # Grupos + stats
+│   │   ├── contributionsStore.ts # Aportes + logros + rachas
+│   │   └── settingsStore.ts      # Settings del usuario
 │   ├── lib/
-│   │   └── supabase.ts           # Cliente Supabase + todas las queries
+│   │   ├── supabase.ts           # Cliente Supabase + queries
+│   │   ├── i18n.ts               # Internacionalización (es/en/fr)
+│   │   ├── currency.ts           # Formato de monedas (COP/USD/EUR/MXN)
+│   │   ├── haptics.ts            # Haptics wrapper (noop en web)
+│   │   ├── notifications.ts      # Push notifications (noop en web)
+│   │   └── oauthCallback.ts      # OAuth callback handler
 │   ├── types/
-│   │   └── index.ts              # Todos los tipos TypeScript
+│   │   └── index.ts
 │   └── constants/
-│       └── index.ts              # Colores, spacing, achievements config
+│       └── index.ts              # Colors, Spacing, Radius, Achievements
 │
 ├── supabase-schema.sql           # Schema completo de BD
 ├── app.json                      # Config Expo
-├── tsconfig.json
-└── .env.example
+├── eas.json                      # Config EAS Build
+├── vercel.json                   # Deploy web en Vercel
+└── babel.config.js               # Babel + import.meta.env fix para web
 ```
 
 ---
 
-## ⚡ Instalación rápida
-
-### 1. Clonar y configurar
+## Instalación
 
 ```bash
 git clone https://github.com/tu-usuario/goalcrew
@@ -73,189 +85,76 @@ cd goalcrew
 npm install
 ```
 
-### 2. Variables de entorno
+### Variables de entorno
 
 ```bash
 cp .env.example .env
 ```
 
-Edita `.env` con tus credenciales de Supabase:
-
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=xxx.apps.googleusercontent.com
 ```
 
-### 3. Base de datos Supabase
+### Base de datos
 
 1. Crea un proyecto en [supabase.com](https://supabase.com)
-2. Ve a **SQL Editor**
-3. Pega y ejecuta el contenido de `supabase-schema.sql`
-4. Activa **Realtime** en tu tabla `contributions` y `group_members`
+2. SQL Editor → pega `supabase-schema.sql`
+3. Activa Realtime en `contributions` y `group_members`
 
-### 4. Configurar Google OAuth
-
-**Lee la guía completa:** [`GOOGLE_OAUTH_SETUP.md`](GOOGLE_OAUTH_SETUP.md)
-
-Pasos resumidos:
-1. Crea un proyecto en [Google Cloud Console](https://console.cloud.google.com)
-2. Habilita Google+ API
-3. Configura OAuth consent screen
-4. Crea OAuth Client ID
-5. Copia Client ID y Secret
-6. Ve a Supabase → Authentication → Providers → Google
-7. Pega Client ID y Secret
-8. Guarda
-
-### 5. Ejecutar
+### Ejecutar
 
 ```bash
-# Expo Go (desarrollo rápido)
+# Web
+npm run web
+
+# Android (requiere build nativo)
+npx expo run:android
+
+# Dev server
 npm start
-
-# iOS Simulator
-npm run ios
-
-# Android Emulator
-npm run android
 ```
 
 ---
 
-## 🎮 Features del MVP
+## Features
 
-### ✅ Autenticación
-- **Google OAuth** con Supabase (sin email/password)
-- Session persistente via AsyncStorage
-- Perfil con nombre y avatar (extraído de Google)
-
-### ✅ Crear meta grupal
-- Nombre, emoji, fecha límite, meta por persona
-- Frecuencia: diaria / semanal / mensual
-- División: igual / personalizada
-- **Cálculo automático** de ahorro por periodo
-
-### ✅ Sistema de grupo
-- Crear grupo → generar código de invitación único
-- Unirse por código
-- Ver todos los miembros con su progreso
-- Estado por miembro: 🟢 Al día / 🟡 En riesgo / 🔴 Atrasado
-
-### ✅ Registro de aportes
-- Modal con monto libre o atajos rápidos ($25, $50, $75, $100)
-- Nota opcional
-- Actualización en tiempo real via Supabase Realtime
-
-### ✅ Dashboard grupal
-- Anillo de progreso SVG (% global)
-- Barra de progreso individual
-- Cálculo de cuánto falta ahorrar por periodo
-- Historial de aportes del grupo
-
-### ✅ Gamificación
-- **Sistema de puntos**: base (monto × 0.25) + bono por racha (+5)
-- **Rachas (streaks)**: días consecutivos con aporte
-- **Ranking semanal** por puntos
-- **9 medallas desbloqueables** con modal de celebración animado
-
-### ✅ Perfil
-- Stats: total ahorrado, puntos, medallas
-- Visualización de racha semanal
-- Grid de medallas (ganadas / por ganar)
+- **Grupos de ahorro** — Crea o únete con código/QR, meta grupal con fecha límite
+- **Aportes en tiempo real** — Registro con montos rápidos, actualización vía Realtime
+- **Progreso visual** — Anillo SVG, barras, porcentajes, cálculos automáticos por período
+- **Gamificación** — Puntos, rachas por período, ranking semanal, 9 logros desbloqueables
+- **QR de invitación** — Genera QR para compartir y escáner integrado para unirse
+- **Multimoneda** — COP, USD, EUR, MXN con formato y shortcuts localizados
+- **División flexible** — Igual o personalizada por miembro
+- **i18n** — Español, inglés, francés
+- **Multiplataforma** — Android nativo, Web (PC/Mac), iPhone vía Safari
+- **Landing page** — Web landing con descarga APK y acceso a web app
 
 ---
 
-## 🗺️ Roadmap post-MVP
+## Deploy
 
-### v1.1 — Notificaciones
-- [ ] Push notifications con Expo Notifications
-- [ ] Recordatorio diario/semanal según frecuencia
-- [ ] Notificación cuando alguien del grupo ahorra
-
-### v1.2 — Social
-- [ ] Comentarios en aportes
-- [ ] Reacciones (emojis) a aportes
-- [ ] Foto de perfil
-
-### v1.3 — Integración de pagos
-- [ ] Integración con Stripe Connect
-- [ ] Wallet grupal real
-- [ ] Historial de transacciones verificadas
-
-### v2.0 — Premium
-- [ ] Estadísticas avanzadas
-- [ ] Modo "viaje sorpresa"
-- [ ] Marketplace de experiencias
-- [ ] Integración con agencias de viaje
-
----
-
-## 🏗️ Decisiones de arquitectura
-
-### ¿Por qué Expo Router en lugar de React Navigation directo?
-- File-based routing = menos boilerplate
-- Deep linking automático
-- Mejor TypeScript support con `typedRoutes`
-
-### ¿Por qué Zustand en lugar de Redux/Context?
-- Menos boilerplate que Redux
-- Más potente que Context para estado complejo
-- Devtools disponibles
-- Fácil de integrar con async/Supabase
-
-### ¿Por qué la lógica de achievements en el cliente?
-- Para el MVP es suficiente y más rápido de implementar
-- En producción: mover a Supabase Edge Functions para mayor seguridad y consistencia
-
----
-
-## 🧪 Testing
+### Web (Vercel)
 
 ```bash
-# Instalar testing tools
-npm install --save-dev jest @testing-library/react-native
-
-# Ejecutar tests
-npm test
+npm i -g vercel
+vercel login
+vercel link
+# Agregar env vars en Vercel Dashboard → Settings → Environment Variables
+vercel --prod
 ```
 
-### Pruebas recomendadas para MVP:
-1. `authStore` — sign in / sign out / persist session
-2. `groupsStore` — create group / join / compute stats
-3. `contributionsStore` — add contribution / calculate points / unlock achievements
-4. Components — `GroupCard`, `MemberRow`, `AchievementModal`
-
----
-
-## 📦 Build para producción
+### APK (Android)
 
 ```bash
-# Instalar EAS CLI
-npm install -g eas-cli
+npm i -g eas-cli
 eas login
-
-# Configurar proyecto
-eas build:configure
-
-# Build preview (para testear en dispositivo)
-npm run build:preview
-
-# Build production
-npm run build:production
+eas build --platform android --profile preview
 ```
 
 ---
 
-## 🤝 Contribuir
+## Licencia
 
-1. Fork el repo
-2. Crea tu branch: `git checkout -b feature/nueva-feature`
-3. Commit: `git commit -m 'Add: nueva feature'`
-4. Push: `git push origin feature/nueva-feature`
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-MIT © GoalCrew 2025
+MIT © GoalCrew 2026

@@ -37,9 +37,10 @@ export interface GroupMember {
   user_id: string;
   individual_goal: number;
   current_amount: number;
-  streak_days: number;
+  streak_days: number; // consecutive periods completed (legacy name, counts periods not days)
   total_points: number;
   last_contribution_date: string | null;
+  last_completed_period: number; // 0-indexed period number last completed (-1 = none)
   status: MemberStatus;
   joined_at: string;
   // Joined from users table

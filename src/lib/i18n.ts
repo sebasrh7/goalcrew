@@ -34,24 +34,24 @@ export const translations: Translations = {
 
   // Welcome Screen
   welcomeTitle1: {
-    es: "Viaja con\ntu crew",
-    en: "Travel with\nyour crew",
-    fr: "Voyagez avec\nvotre équipe",
+    es: "Ahorra con\ntu crew",
+    en: "Save with\nyour crew",
+    fr: "Épargnez avec\nvotre équipe",
   },
   welcomeDesc1: {
-    es: "Ahorra en grupo, mantente motivado y llega al destino que siempre soñaron juntos.",
-    en: "Save as a group, stay motivated and reach the destination you always dreamed of together.",
-    fr: "Économisez en groupe, restez motivé et atteignez la destination dont vous avez toujours rêvé ensemble.",
+    es: "Crea un grupo, invita a tus amigos y ahorren juntos para cualquier meta: viajes, proyectos o lo que sueñen.",
+    en: "Create a group, invite your friends and save together for any goal: trips, projects or whatever you dream of.",
+    fr: "Créez un groupe, invitez vos amis et épargnez ensemble pour n'importe quel objectif : voyages, projets ou ce dont vous rêvez.",
   },
   welcomeTitle2: {
-    es: "Establece metas\njuntos",
-    en: "Set goals\ntogether",
-    fr: "Fixez des objectifs\nensemble",
+    es: "Registra aportes\njuntos",
+    en: "Track savings\ntogether",
+    fr: "Suivez l'épargne\nensemble",
   },
   welcomeDesc2: {
-    es: "Define objetivos claros, divídanse los gastos de forma justa y trackeen el progreso en tiempo real.",
-    en: "Define clear objectives, divide expenses fairly and track progress in real time.",
-    fr: "Définissez des objectifs clairs, divisez les dépenses équitablement et suivez les progrès en temps réel.",
+    es: "Define la meta del grupo, elige cómo dividirla y registra cada aporte. El progreso se actualiza en tiempo real.",
+    en: "Set the group goal, choose how to split it and log each contribution. Progress updates in real time.",
+    fr: "Définissez l'objectif du groupe, choisissez comment le répartir et enregistrez chaque apport. Le progrès se met à jour en temps réel.",
   },
   welcomeTitle3: {
     es: "Celebra cada\nlogro",
@@ -59,9 +59,9 @@ export const translations: Translations = {
     fr: "Célébrez chaque\nréussite",
   },
   welcomeDesc3: {
-    es: "Gana medallas, mantén rachas y comparte la emoción de cada meta alcanzada.",
-    en: "Earn medals, maintain streaks and share the excitement of each goal achieved.",
-    fr: "Gagnez des médailles, maintenez des séries et partagez l'excitation de chaque objectif atteint.",
+    es: "Desbloquea medallas, mantén tu racha y sube de nivel mientras alcanzan su meta.",
+    en: "Unlock medals, keep your streak going and level up as you reach your goal.",
+    fr: "Débloquez des médailles, maintenez votre série et montez de niveau en atteignant votre objectif.",
   },
   continueWithGoogle: {
     es: "Continuar con Google",
@@ -108,9 +108,9 @@ export const translations: Translations = {
     fr: "Bienvenue !",
   },
   traveler: {
-    es: "Viajero",
-    en: "Traveler",
-    fr: "Voyageur",
+    es: "Ahorrador",
+    en: "Saver",
+    fr: "Épargnant",
   },
   totalSaved: {
     es: "Total ahorrado",
@@ -210,14 +210,14 @@ export const translations: Translations = {
     fr: "Médailles",
   },
   weeklyStreak: {
-    es: "Racha semanal",
-    en: "Weekly streak",
-    fr: "Série hebdomadaire",
+    es: "Racha de constancia",
+    en: "Consistency streak",
+    fr: "Série de constance",
   },
   days: {
-    es: "días",
-    en: "days",
-    fr: "jours",
+    es: "períodos",
+    en: "periods",
+    fr: "périodes",
   },
   epicStreak: {
     es: "¡Racha épica!",
@@ -404,9 +404,9 @@ export const translations: Translations = {
     fr: "Nom de l'objectif",
   },
   goalNamePlaceholder: {
-    es: "ej. Viaje a Miami",
-    en: "e.g. Trip to Miami",
-    fr: "ex. Voyage à Miami",
+    es: "ej. Fondo de emergencia",
+    en: "e.g. Emergency fund",
+    fr: "ex. Fonds d'urgence",
   },
   icon: {
     es: "Ícono",
@@ -554,9 +554,9 @@ export const translations: Translations = {
     fr: "Résumé de votre objectif",
   },
   destination: {
-    es: "Destino",
-    en: "Destination",
-    fr: "Destination",
+    es: "Nombre",
+    en: "Name",
+    fr: "Nom",
   },
   goalPerPersonLabel: {
     es: "Meta/persona",
@@ -695,9 +695,9 @@ export const translations: Translations = {
     fr: "3 d'affilée",
   },
   achievement_streak_3_desc: {
-    es: "3 días consecutivos ahorrando",
-    en: "3 consecutive days saving",
-    fr: "3 jours consécutifs d'épargne",
+    es: "3 períodos consecutivos ahorrando",
+    en: "3 consecutive periods saving",
+    fr: "3 périodes consécutives d'épargne",
   },
   achievement_streak_7_title: {
     es: "Semana de fuego",
@@ -705,9 +705,9 @@ export const translations: Translations = {
     fr: "Semaine en feu",
   },
   achievement_streak_7_desc: {
-    es: "7 días consecutivos ahorrando",
-    en: "7 consecutive days saving",
-    fr: "7 jours consécutifs d'épargne",
+    es: "7 períodos consecutivos ahorrando",
+    en: "7 consecutive periods saving",
+    fr: "7 périodes consécutives d'épargne",
   },
   achievement_streak_30_title: {
     es: "Mes imparable",
@@ -715,9 +715,9 @@ export const translations: Translations = {
     fr: "Mois inarrêtable",
   },
   achievement_streak_30_desc: {
-    es: "30 días consecutivos ahorrando",
-    en: "30 consecutive days saving",
-    fr: "30 jours consécutifs d'épargne",
+    es: "30 períodos consecutivos ahorrando",
+    en: "30 consecutive periods saving",
+    fr: "30 périodes consécutives d'épargne",
   },
   achievement_first_50_percent_title: {
     es: "Primero al 50%",
@@ -1112,9 +1112,9 @@ export const translations: Translations = {
     fr: "Enregistrement...",
   },
   madeWithLove: {
-    es: "Hecho con 💜 para viajeros",
-    en: "Made with 💜 for travelers",
-    fr: "Fait avec 💜 pour les voyageurs",
+    es: "Hecho con 💜 para ahorradores",
+    en: "Made with 💜 for savers",
+    fr: "Fait avec 💜 pour les épargnants",
   },
   errorBoundaryTitle: {
     es: "Algo salió mal",
@@ -1248,9 +1248,9 @@ export const translations: Translations = {
     fr: "Rejoindre",
   },
   downloadApp: {
-    es: "Descarga la app:",
-    en: "Download the app:",
-    fr: "Téléchargez l'app :",
+    es: "Únete aquí:",
+    en: "Join here:",
+    fr: "Rejoignez ici :",
   },
   code: {
     es: "Código",
@@ -1308,9 +1308,9 @@ export const translations: Translations = {
     fr: "XP",
   },
   whereAreYouGoing: {
-    es: "¿A dónde van?",
-    en: "Where are you going?",
-    fr: "Où allez-vous ?",
+    es: "¿Cuál es la meta?",
+    en: "What's the goal?",
+    fr: "Quel est l'objectif ?",
   },
 
   // Phase 2 — Group management
@@ -1485,15 +1485,219 @@ export const translations: Translations = {
     en: "No streak",
     fr: "Pas de série",
   },
+  periodsCompleted: {
+    es: "períodos cumplidos",
+    en: "periods completed",
+    fr: "périodes complétées",
+  },
   tripIcon: {
-    es: "Icono del viaje",
-    en: "Trip icon",
-    fr: "Icône du voyage",
+    es: "Icono del grupo",
+    en: "Group icon",
+    fr: "Icône du groupe",
   },
   setupGroupTrip: {
-    es: "Configura tu viaje grupal",
-    en: "Set up your group trip",
-    fr: "Configurez votre voyage de groupe",
+    es: "Configura tu meta grupal",
+    en: "Set up your group goal",
+    fr: "Configurez votre objectif de groupe",
+  },
+  // ─── QR Code ────────────────────────────────────────────────────────────
+  inviteMembers: {
+    es: "Invitar miembros",
+    en: "Invite members",
+    fr: "Inviter des membres",
+  },
+  qrScanHint: {
+    es: "Los miembros pueden escanear este QR para unirse al grupo",
+    en: "Members can scan this QR to join the group",
+    fr: "Les membres peuvent scanner ce QR pour rejoindre le groupe",
+  },
+  close: {
+    es: "Cerrar",
+    en: "Close",
+    fr: "Fermer",
+  },
+  pointCameraAtQR: {
+    es: "Apunta la cámara al código QR de invitación",
+    en: "Point your camera at the invite QR code",
+    fr: "Pointez la caméra vers le code QR d'invitation",
+  },
+  qrInvalidCode: {
+    es: "El QR no contiene un código de invitación válido",
+    en: "The QR does not contain a valid invite code",
+    fr: "Le QR ne contient pas de code d'invitation valide",
+  },
+  qrNotAvailableWeb: {
+    es: "El escáner QR no está disponible en la versión web. Ingresa el código manualmente.",
+    en: "QR scanner is not available on the web version. Enter the code manually.",
+    fr: "Le scanner QR n'est pas disponible dans la version web. Entrez le code manuellement.",
+  },
+  // ─── Landing Page ───────────────────────────────────────────────────────
+  landingBadge: {
+    es: "Ahorro grupal simplificado",
+    en: "Group savings simplified",
+    fr: "Épargne de groupe simplifiée",
+  },
+  landingHeroTitle1: {
+    es: "Ahorra en grupo,",
+    en: "Save together,",
+    fr: "Épargnez ensemble,",
+  },
+  landingHeroTitle2: {
+    es: "logra tus metas",
+    en: "reach your goals",
+    fr: "atteignez vos objectifs",
+  },
+  landingHeroSubtitle: {
+    es: "Crea grupos de ahorro con amigos y familia. Registra aportes, sigue el progreso y alcancen sus metas juntos.",
+    en: "Create savings groups with friends and family. Track contributions, follow progress, and reach your goals together.",
+    fr: "Créez des groupes d'épargne avec vos amis et votre famille. Suivez les contributions, le progrès et atteignez vos objectifs ensemble.",
+  },
+  landingSignIn: {
+    es: "Iniciar sesión",
+    en: "Sign in",
+    fr: "Se connecter",
+  },
+  landingUseWeb: {
+    es: "Usar versión web",
+    en: "Use web version",
+    fr: "Utiliser la version web",
+  },
+  landingDownloadAPK: {
+    es: "Descargar APK",
+    en: "Download APK",
+    fr: "Télécharger APK",
+  },
+  landingStat1: {
+    es: "100% gratuito",
+    en: "100% free",
+    fr: "100% gratuit",
+  },
+  landingStat2: {
+    es: "Datos seguros",
+    en: "Secure data",
+    fr: "Données sécurisées",
+  },
+  landingStat3: {
+    es: "Android, Web & iPhone",
+    en: "Android, Web & iPhone",
+    fr: "Android, Web & iPhone",
+  },
+  landingFeaturesTag: {
+    es: "Funcionalidades",
+    en: "Features",
+    fr: "Fonctionnalités",
+  },
+  landingFeaturesTitle: {
+    es: "Todo lo que necesitas para ahorrar juntos",
+    en: "Everything you need to save together",
+    fr: "Tout ce dont vous avez besoin pour épargner ensemble",
+  },
+  landingFeature1Title: {
+    es: "Grupos de ahorro",
+    en: "Savings groups",
+    fr: "Groupes d'épargne",
+  },
+  landingFeature1Desc: {
+    es: "Crea o únete a grupos con amigos y familia. Cada uno aporta a su ritmo hacia una meta común.",
+    en: "Create or join groups with friends and family. Everyone contributes at their pace toward a shared goal.",
+    fr: "Créez ou rejoignez des groupes avec vos proches. Chacun contribue à son rythme vers un objectif commun.",
+  },
+  landingFeature2Title: {
+    es: "Seguimiento en tiempo real",
+    en: "Real-time tracking",
+    fr: "Suivi en temps réel",
+  },
+  landingFeature2Desc: {
+    es: "Visualiza el progreso del grupo con gráficos y porcentajes. Sabe exactamente cuánto falta.",
+    en: "Visualize group progress with charts and percentages. Know exactly how much is left.",
+    fr: "Visualisez le progrès du groupe avec des graphiques. Sachez exactement combien il reste.",
+  },
+  landingFeature3Title: {
+    es: "Logros y rachas",
+    en: "Achievements and streaks",
+    fr: "Succès et séries",
+  },
+  landingFeature3Desc: {
+    es: "Desbloquea logros por tu constancia. Mantén rachas de ahorro y compite con tu grupo.",
+    en: "Unlock achievements for your consistency. Maintain saving streaks and compete with your group.",
+    fr: "Débloquez des succès pour votre constance. Maintenez des séries d'épargne et rivalisez avec votre groupe.",
+  },
+  landingFeature4Title: {
+    es: "Códigos QR de invitación",
+    en: "QR invite codes",
+    fr: "Codes QR d'invitation",
+  },
+  landingFeature4Desc: {
+    es: "Comparte un código QR para que otros se unan al instante. Sin complicaciones.",
+    en: "Share a QR code so others can join instantly. No hassle.",
+    fr: "Partagez un code QR pour que d'autres rejoignent instantanément. Sans complications.",
+  },
+  landingDownloadTag: {
+    es: "Descargar",
+    en: "Download",
+    fr: "Télécharger",
+  },
+  landingDownloadTitle: {
+    es: "Disponible en todas las plataformas",
+    en: "Available on all platforms",
+    fr: "Disponible sur toutes les plateformes",
+  },
+  landingDownloadAndroidDesc: {
+    es: "Descarga el APK directamente. No necesitas Play Store.",
+    en: "Download the APK directly. No Play Store needed.",
+    fr: "Téléchargez l'APK directement. Pas besoin du Play Store.",
+  },
+  landingDownloadWebDesc: {
+    es: "Úsalo desde cualquier navegador en tu computador. Sin instalar nada.",
+    en: "Use it from any browser on your computer. No installation needed.",
+    fr: "Utilisez-le depuis n'importe quel navigateur. Aucune installation requise.",
+  },
+  landingDownloadIphoneDesc: {
+    es: "Abre la app en Safari y agrégala a tu pantalla de inicio.",
+    en: "Open the app in Safari and add it to your home screen.",
+    fr: "Ouvrez l'app dans Safari et ajoutez-la à votre écran d'accueil.",
+  },
+  landingOpenWebApp: {
+    es: "Abrir app web",
+    en: "Open web app",
+    fr: "Ouvrir l'app web",
+  },
+  landingCtaTitle: {
+    es: "¿Listo para empezar a ahorrar?",
+    en: "Ready to start saving?",
+    fr: "Prêt à commencer à épargner ?",
+  },
+  landingCtaSubtitle: {
+    es: "Crea tu primer grupo en menos de un minuto",
+    en: "Create your first group in less than a minute",
+    fr: "Créez votre premier groupe en moins d'une minute",
+  },
+  landingCtaButton: {
+    es: "Comenzar ahora",
+    en: "Start now",
+    fr: "Commencer maintenant",
+  },
+  landingFooter: {
+    es: "Ahorra juntos, logra más.",
+    en: "Save together, achieve more.",
+    fr: "Épargnez ensemble, accomplissez plus.",
+  },
+
+  // ─── Calendar ───────────────────────────────────────────────────────────
+  calendar: {
+    es: "Calendario",
+    en: "Calendar",
+    fr: "Calendrier",
+  },
+  calendarNoContribs: {
+    es: "Sin aportes este día",
+    en: "No contributions this day",
+    fr: "Pas de contributions ce jour",
+  },
+  calendarToday: {
+    es: "Hoy",
+    en: "Today",
+    fr: "Aujourd'hui",
   },
 };
 

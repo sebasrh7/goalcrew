@@ -1,7 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
-import "react-native-url-polyfill/auto";
+
+// Only load the URL polyfill on native — browsers already have a full URL implementation
+if (Platform.OS !== "web") {
+  require("react-native-url-polyfill/auto");
+}
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -23,40 +27,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // ─── Auth Helpers ─────────────────────────────────────────────────────────────
 
-export async function getCurrentUser() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error) throw error;
-  return user;
-}
-
-export async function getUserProfile(userId: string) {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", userId)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
 // ─── Groups ──────────────────────────────────────────────────────────────────
-
-export async function fetchUserGroups(userId: string) {
-  const { data, error } = await supabase
-    .from("group_members")
-    .select(
-      `
-      *,
-      group:groups(*)
-    `,
-    )
-    .eq("user_id", userId);
-  if (error) throw error;
-  return data;
-}
 
 export async function fetchGroupWithMembers(groupId: string) {
   const { data, error } = await supabase
@@ -169,7 +140,7 @@ export async function addContribution(
   return data;
 }
 
-export async function fetchGroupContributions(groupId: string, limit = 20) {
+export async function fetchGroupContributions(groupId: string, limit = 100) {
   const { data, error } = await supabase
     .from("contributions")
     .select(`*, user:users(*)`)
@@ -181,16 +152,6 @@ export async function fetchGroupContributions(groupId: string, limit = 20) {
 }
 
 // ─── Achievements ────────────────────────────────────────────────────────────
-
-export async function fetchUserAchievements(userId: string, groupId: string) {
-  const { data, error } = await supabase
-    .from("achievements")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("group_id", groupId);
-  if (error) throw error;
-  return data;
-}
 
 // Fetch all achievements across all groups for a user
 export async function fetchAllUserAchievements(userId: string) {

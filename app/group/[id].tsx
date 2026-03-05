@@ -28,15 +28,18 @@ import Svg, {
 } from "react-native-svg";
 import { AchievementModal } from "../../src/components/AchievementModal";
 import { AlertModal } from "../../src/components/AlertModal";
+import { ContributionCalendar } from "../../src/components/ContributionCalendar";
+import { InviteQRModal } from "../../src/components/InviteQRModal";
 import { MemberRow } from "../../src/components/MemberRow";
 import { Button, Card, StatusPill } from "../../src/components/UI";
 import {
   Colors,
   FontSize,
+  GROUP_ICONS,
   Radius,
   Spacing,
-  TRIP_ICONS,
   getErrorMessage,
+  getInviteUrl,
 } from "../../src/constants";
 import {
   CURRENCIES,
@@ -52,7 +55,7 @@ import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
 
-type TabType = "members" | "ranking" | "history";
+type TabType = "members" | "ranking" | "history" | "calendar";
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -106,13 +109,14 @@ export default function GroupScreen() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
   const [editGroupName, setEditGroupName] = useState("");
-  const [editGroupEmoji, setEditGroupEmoji] = useState(TRIP_ICONS[0]);
+  const [editGroupEmoji, setEditGroupEmoji] = useState(GROUP_ICONS[0]);
   const [editGroupGoal, setEditGroupGoal] = useState("");
   const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
   const [showEditContribModal, setShowEditContribModal] = useState(false);
   const [editContribId, setEditContribId] = useState<string | null>(null);
   const [editContribAmount, setEditContribAmount] = useState("");
   const [editContribNote, setEditContribNote] = useState("");
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // Alert modal state (replaces Alert.alert)
   const [alertModal, setAlertModal] = useState<{
@@ -213,9 +217,10 @@ export default function GroupScreen() {
 
   const handleShare = async () => {
     if (!currentGroup) return;
+    const inviteUrl = getInviteUrl(currentGroup.invite_code);
     try {
       await Share.share({
-        message: `${t("joinShareMessage", lang)} "${currentGroup.name}"\n\n${t("code", lang)}: ${currentGroup.invite_code}`,
+        message: `${t("joinShareMessage", lang)} "${currentGroup.name}"\n\n${t("code", lang)}: ${currentGroup.invite_code}\n\n${t("downloadApp", lang)} ${inviteUrl}`,
         title: `${t("joinShareTitle", lang)} ${currentGroup.name}`,
       });
     } catch {
@@ -332,7 +337,7 @@ export default function GroupScreen() {
     if (!currentGroup) return;
     setEditGroupName(currentGroup.name);
     setEditGroupEmoji(
-      TRIP_ICONS.find((i) => i.name === currentGroup.emoji) || TRIP_ICONS[0],
+      GROUP_ICONS.find((i) => i.name === currentGroup.emoji) || GROUP_ICONS[0],
     );
     setEditGroupGoal(String(currentGroup.goal_amount));
     setShowSettingsModal(false);
@@ -519,13 +524,13 @@ export default function GroupScreen() {
             <Text style={styles.backText}>{t("backToGoals", lang)}</Text>
           </TouchableOpacity>
           <View style={styles.headerTop}>
-            <View>
+            <View style={{ flex: 1 }}>
               <View style={styles.groupIconContainer}>
                 {(() => {
                   const groupIcon =
-                    TRIP_ICONS.find(
+                    GROUP_ICONS.find(
                       (icon) => icon.name === currentGroup.emoji,
-                    ) || TRIP_ICONS[0];
+                    ) || GROUP_ICONS[0];
                   return (
                     <Ionicons
                       name={groupIcon.name as any}
@@ -564,18 +569,21 @@ export default function GroupScreen() {
                 </View>
               </View>
             </View>
-            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <View
+              style={{ flexDirection: "row", gap: Spacing.sm, flexShrink: 0 }}
+            >
+              <TouchableOpacity
+                onPress={() => setShowQRModal(true)}
+                style={styles.shareBtn}
+              >
+                <Ionicons name="qr-code-outline" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-                <View style={styles.shareBtnContent}>
-                  <Ionicons name="link-outline" size={16} color="#FFFFFF" />
-                  <Text style={[styles.shareBtnText, { marginLeft: 6 }]}>
-                    {t("code", lang)}
-                  </Text>
-                </View>
+                <Ionicons name="link-outline" size={18} color="#FFFFFF" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setShowSettingsModal(true)}
-                style={[styles.shareBtn, { paddingHorizontal: Spacing.sm }]}
+                style={styles.shareBtn}
               >
                 <Ionicons name="ellipsis-vertical" size={18} color="#FFFFFF" />
               </TouchableOpacity>
@@ -789,7 +797,7 @@ export default function GroupScreen() {
                     <View style={styles.streakBadgeContainer}>
                       <Ionicons name="flame" size={14} color="#FF6B35" />
                       <Text style={styles.streakBadge}>
-                        {myMember.streak_days}d
+                        {myMember.streak_days}
                       </Text>
                     </View>
                   )}
@@ -801,38 +809,47 @@ export default function GroupScreen() {
 
         {/* Tabs */}
         <View style={{ paddingHorizontal: Spacing.xl }}>
-          <View style={styles.tabBar}>
-            {(["members", "ranking", "history"] as TabType[]).map((tab) => {
-              const labels = {
-                members: { icon: "people", text: t("members", lang) },
-                ranking: { icon: "trophy", text: t("ranking", lang) },
-                history: { icon: "list", text: t("history", lang) },
-              };
-              const tabInfo = labels[tab];
-              return (
-                <TouchableOpacity
-                  key={tab}
-                  onPress={() => setActiveTab(tab)}
-                  style={[styles.tab, activeTab === tab && styles.tabActive]}
-                >
-                  <Ionicons
-                    name={tabInfo.icon as any}
-                    size={16}
-                    color={activeTab === tab ? Colors.accent2 : Colors.text3}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text
-                    style={[
-                      styles.tabText,
-                      activeTab === tab && styles.tabTextActive,
-                    ]}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabBar}
+            contentContainerStyle={styles.tabBarContent}
+          >
+            {(["members", "ranking", "history", "calendar"] as TabType[]).map(
+              (tab) => {
+                const labels: Record<TabType, { icon: string; text: string }> =
+                  {
+                    members: { icon: "people", text: t("members", lang) },
+                    ranking: { icon: "trophy", text: t("ranking", lang) },
+                    history: { icon: "list", text: t("history", lang) },
+                    calendar: { icon: "calendar", text: t("calendar", lang) },
+                  };
+                const tabInfo = labels[tab];
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    onPress={() => setActiveTab(tab)}
+                    style={[styles.tab, activeTab === tab && styles.tabActive]}
                   >
-                    {tabInfo.text}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Ionicons
+                      name={tabInfo.icon as any}
+                      size={16}
+                      color={activeTab === tab ? Colors.accent2 : Colors.text3}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.tabText,
+                        activeTab === tab && styles.tabTextActive,
+                      ]}
+                    >
+                      {tabInfo.text}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              },
+            )}
+          </ScrollView>
 
           <Card style={{ paddingVertical: Spacing.sm }}>
             {activeTab === "members" && (
@@ -923,6 +940,15 @@ export default function GroupScreen() {
                   ))
                 )}
               </>
+            )}
+
+            {activeTab === "calendar" && user && (
+              <ContributionCalendar
+                contributions={contributions}
+                userId={user.id}
+                currency={settings.currency}
+                lang={lang}
+              />
             )}
           </Card>
         </View>
@@ -1215,7 +1241,7 @@ export default function GroupScreen() {
 
               <Text style={styles.inputLabel}>{t("icon", lang)}</Text>
               <View style={styles.emojiGrid}>
-                {TRIP_ICONS.map((icon) => (
+                {GROUP_ICONS.map((icon) => (
                   <TouchableOpacity
                     key={icon.name}
                     onPress={() => setEditGroupEmoji(icon)}
@@ -1317,6 +1343,17 @@ export default function GroupScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* QR Invite Modal */}
+      {currentGroup && (
+        <InviteQRModal
+          visible={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          inviteCode={currentGroup.invite_code}
+          groupName={currentGroup.name}
+          lang={lang}
+        />
+      )}
+
       {/* Generic Alert Modal */}
       <AlertModal
         visible={alertModal.visible}
@@ -1392,15 +1429,11 @@ const styles = StyleSheet.create({
   shareBtn: {
     backgroundColor: Colors.surface2,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    padding: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.surface3,
-  },
-  shareBtnText: {
-    fontSize: FontSize.sm,
-    fontWeight: "700",
-    color: Colors.text,
+    alignItems: "center",
+    justifyContent: "center",
   },
   progressRow: {
     flexDirection: "row",
@@ -1455,17 +1488,22 @@ const styles = StyleSheet.create({
   },
   myProgressHint: { fontSize: FontSize.xs, color: Colors.text2 },
   tabBar: {
-    flexDirection: "row",
     backgroundColor: Colors.surface2,
     borderRadius: Radius.md,
     padding: 4,
     marginBottom: Spacing.md,
+    flexGrow: 0,
+  },
+  tabBarContent: {
+    gap: 4,
   },
   tab: {
-    flex: 1,
     paddingVertical: 9,
+    paddingHorizontal: 14,
     alignItems: "center",
     borderRadius: Radius.sm,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   tabActive: { backgroundColor: Colors.surface },
   tabText: { fontSize: FontSize.xs, fontWeight: "700", color: Colors.text2 },
@@ -1583,10 +1621,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   pillContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  shareBtnContent: {
     flexDirection: "row",
     alignItems: "center",
   },

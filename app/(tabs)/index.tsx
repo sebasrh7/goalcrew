@@ -167,7 +167,7 @@ export default function HomeScreen() {
         {groups.length === 0 ? (
           <View style={{ paddingHorizontal: Spacing.xl }}>
             <EmptyState
-              icon="airplane"
+              icon="flag"
               title={t("noGoalsYet", settings.language)}
               description={t("noGoalsDesc", settings.language)}
               action={{

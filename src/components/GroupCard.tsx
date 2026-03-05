@@ -4,7 +4,7 @@ import { enUS, es, fr } from "date-fns/locale";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, FontSize, Radius, Spacing, TRIP_ICONS } from "../constants";
+import { Colors, FontSize, GROUP_ICONS, Radius, Spacing } from "../constants";
 import { formatCurrency } from "../lib/currency";
 import { impactAsync } from "../lib/haptics";
 import { useTranslation } from "../lib/i18n";
@@ -46,7 +46,7 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
 
   // Find the icon configuration
   const groupIcon =
-    TRIP_ICONS.find((icon) => icon.name === group.emoji) || TRIP_ICONS[0];
+    GROUP_ICONS.find((icon) => icon.name === group.emoji) || GROUP_ICONS[0];
 
   const progressColor =
     group.progress_percent >= 70

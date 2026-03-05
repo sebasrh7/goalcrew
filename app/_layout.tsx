@@ -14,7 +14,7 @@ import { initAuthListener, useAuthStore } from "../src/store/authStore";
 import { useSettingsStore } from "../src/store/settingsStore";
 
 // Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const { isLoading, isAuthenticated } = useAuthStore();

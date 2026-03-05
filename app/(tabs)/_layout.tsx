@@ -8,6 +8,8 @@ import { t } from "../../src/lib/i18n";
 import { useAuthStore } from "../../src/store/authStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 
+const isWeb = Platform.OS === "web";
+
 export default function TabsLayout() {
   const { isAuthenticated } = useAuthStore();
   const { settings } = useSettingsStore();
@@ -16,14 +18,17 @@ export default function TabsLayout() {
 
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
 
+  const tabBarHeight = isWeb ? 64 : 60 + insets.bottom;
+  const tabBarPaddingBottom = isWeb ? 8 : insets.bottom || 8;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
           ...styles.tabBar,
-          height: 60 + insets.bottom, // Altura dinámica basada en safe area
-          paddingBottom: insets.bottom || 8, // Padding dinámico
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
         },
         tabBarActiveTintColor: Colors.accent2,
         tabBarInactiveTintColor: Colors.text3,
@@ -101,7 +106,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    marginBottom: 8,
+    marginBottom: isWeb ? 0 : 8,
     overflow: "hidden",
   },
   createBtnActive: {

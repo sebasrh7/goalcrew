@@ -32,9 +32,9 @@ import { Button, Card } from "../../src/components/UI";
 import {
   Colors,
   FontSize,
+  GROUP_ICONS,
   Radius,
   Spacing,
-  TRIP_ICONS,
   getErrorMessage,
 } from "../../src/constants";
 import {
@@ -54,7 +54,7 @@ export default function CreateScreen() {
   const lang = settings.language || "es";
 
   const [name, setName] = useState("");
-  const [selectedIcon, setSelectedIcon] = useState(TRIP_ICONS[0]);
+  const [selectedIcon, setSelectedIcon] = useState(GROUP_ICONS[0]);
   const [goalAmount, setGoalAmount] = useState("");
   const [deadlineDate, setDeadlineDate] = useState(() =>
     addDays(new Date(), 90),
@@ -212,7 +212,7 @@ export default function CreateScreen() {
           </TouchableOpacity>
           <View style={styles.titleContainer}>
             <Ionicons
-              name="airplane"
+              name="flag"
               size={28}
               color={Colors.accent2}
               style={{ marginRight: 8 }}
@@ -241,7 +241,7 @@ export default function CreateScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>{t("tripIcon", lang)}</Text>
             <View style={styles.emojiGrid}>
-              {TRIP_ICONS.map((icon) => (
+              {GROUP_ICONS.map((icon) => (
                 <TouchableOpacity
                   key={icon.name}
                   onPress={() => setSelectedIcon(icon)}
@@ -410,7 +410,7 @@ export default function CreateScreen() {
           <Card style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>{t("goalSummary", lang)}</Text>
             <SummaryRow
-              icon="airplane"
+              icon="flag"
               label={t("destination", lang)}
               value={name || "—"}
             />
@@ -649,6 +649,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   dateButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

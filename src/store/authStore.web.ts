@@ -19,7 +19,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
 
   signIn: async () => {
-    set({ isLoading: true });
+    // Do NOT set isLoading here — on web, signInWithOAuth redirects the browser
+    // to Google. Setting isLoading would unmount the entire app (RootLayout
+    // returns null when isLoading is true), killing the redirect before it fires.
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -31,7 +33,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) throw error;
       // The browser will redirect — auth state is handled by initAuthListener
     } catch (error: unknown) {
-      set({ isLoading: false });
       throw error;
     }
   },
@@ -79,82 +80,88 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // ─── Initialize auth listener ─────────────────────────────────────────────────
 export function initAuthListener(): () => void {
-  supabase.auth.getSession().then(async ({ data: { session } }) => {
-    if (session?.user) {
-      try {
-        const profile = await fetchProfile(session.user.id);
-        const metadataAvatar = getAvatarFromMetadata(
-          session.user.user_metadata as Record<string, unknown> | undefined,
-        );
-        let finalProfile = profile;
+  supabase.auth
+    .getSession()
+    .then(async ({ data: { session } }) => {
+      if (session?.user) {
+        try {
+          const profile = await fetchProfile(session.user.id);
+          const metadataAvatar = getAvatarFromMetadata(
+            session.user.user_metadata as Record<string, unknown> | undefined,
+          );
+          let finalProfile = profile;
 
-        if (!profile.avatar_url && metadataAvatar) {
-          const { data: updated } = await supabase
-            .from("users")
-            .update({ avatar_url: metadataAvatar })
-            .eq("id", session.user.id)
-            .select()
-            .single();
+          if (!profile.avatar_url && metadataAvatar) {
+            const { data: updated } = await supabase
+              .from("users")
+              .update({ avatar_url: metadataAvatar })
+              .eq("id", session.user.id)
+              .select()
+              .single();
 
-          if (updated) {
-            finalProfile = updated;
+            if (updated) {
+              finalProfile = updated;
+            }
           }
-        }
 
-        useAuthStore.setState({
-          user: finalProfile,
-          session,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-
-        const { loadSettings } = useSettingsStore.getState();
-        await loadSettings();
-      } catch (error: unknown) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "code" in error &&
-          (error as { code: string }).code === "PGRST116"
-        ) {
-          await supabase.auth.signOut();
           useAuthStore.setState({
-            user: null,
-            session: null,
-            isAuthenticated: false,
+            user: finalProfile,
+            session,
+            isAuthenticated: true,
             isLoading: false,
           });
-          return;
+
+          const { loadSettings } = useSettingsStore.getState();
+          await loadSettings();
+        } catch (error: unknown) {
+          if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            (error as { code: string }).code === "PGRST116"
+          ) {
+            await supabase.auth.signOut();
+            useAuthStore.setState({
+              user: null,
+              session: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+            return;
+          }
+
+          const email = session.user.email ?? "";
+          const fallbackUser: User = {
+            id: session.user.id,
+            email,
+            name:
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              email.split("@")[0] ||
+              "User",
+            avatar_url: getAvatarFromMetadata(
+              session.user.user_metadata as Record<string, unknown> | undefined,
+            ),
+            created_at: session.user.created_at,
+          };
+          useAuthStore.setState({
+            user: fallbackUser,
+            session,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+
+          const { loadSettings } = useSettingsStore.getState();
+          await loadSettings();
         }
-
-        const email = session.user.email ?? "";
-        const fallbackUser: User = {
-          id: session.user.id,
-          email,
-          name:
-            session.user.user_metadata?.full_name ||
-            session.user.user_metadata?.name ||
-            email.split("@")[0] ||
-            "User",
-          avatar_url: getAvatarFromMetadata(
-            session.user.user_metadata as Record<string, unknown> | undefined,
-          ),
-          created_at: session.user.created_at,
-        };
-        useAuthStore.setState({
-          user: fallbackUser,
-          session,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-
-        const { loadSettings } = useSettingsStore.getState();
-        await loadSettings();
+      } else {
+        useAuthStore.setState({ isLoading: false });
       }
-    } else {
+    })
+    .catch(() => {
+      // Ensure isLoading is cleared even if getSession rejects (e.g. network error)
       useAuthStore.setState({ isLoading: false });
-    }
-  });
+    });
 
   const {
     data: { subscription },

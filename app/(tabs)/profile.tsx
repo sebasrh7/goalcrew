@@ -23,9 +23,9 @@ import {
   ACHIEVEMENTS,
   Colors,
   FontSize,
+  GROUP_ICONS,
   Radius,
   Spacing,
-  TRIP_ICONS,
   getUserLevel,
 } from "../../src/constants";
 import { formatCurrency } from "../../src/lib/currency";
@@ -35,12 +35,6 @@ import { useAuthStore } from "../../src/store/authStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
-
-const DAYS_SHORT_I18N: Record<string, string[]> = {
-  es: ["L", "M", "M", "J", "V", "S", "D"],
-  en: ["M", "T", "W", "T", "F", "S", "S"],
-  fr: ["L", "M", "M", "J", "V", "S", "D"],
-};
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -91,7 +85,6 @@ export default function ProfileScreen() {
     setAlertModal((prev) => ({ ...prev, visible: false }));
 
   const lang = settings.language || "es";
-  const DAYS_SHORT = DAYS_SHORT_I18N[lang] || DAYS_SHORT_I18N.es;
 
   // Compute stats
   const totalSaved = useMemo(
@@ -146,57 +139,83 @@ export default function ProfileScreen() {
     loadAchievements();
   }, [loadAchievements]);
 
-  // Find the best member for streak info (last_contribution_date)
-  const bestStreakMember = useMemo(() => {
+  // Find the best member for streak info, including the group's frequency
+  const bestStreakInfo = useMemo(() => {
     let best: {
       streak_days: number;
-      last_contribution_date: string | null;
+      last_completed_period: number;
+      frequency: string;
+      custom_frequency_days: number | null;
+      group_created_at: string;
     } | null = null;
     for (const g of groups) {
       const m = g.members?.find((m) => m.user_id === user?.id);
       if (m && m.streak_days > (best?.streak_days ?? 0)) {
         best = {
           streak_days: m.streak_days,
-          last_contribution_date: m.last_contribution_date,
+          last_completed_period: m.last_completed_period,
+          frequency: g.frequency,
+          custom_frequency_days: g.custom_frequency_days,
+          group_created_at: g.created_at,
         };
       }
     }
     return best;
   }, [groups, user?.id]);
 
-  // Build streak week dots based on actual current day and last contribution
+  // Build streak period dots — show last 7 periods, highlight completed ones
+  const NUM_DOTS = 7;
   const streakDots = useMemo(() => {
-    const today = new Date().getDay(); // 0=Sun, 1=Mon...6=Sat
-    // Convert to Mon=0...Sun=6
-    const todayIdx = today === 0 ? 6 : today - 1;
-
-    // Check if streak is currently active (contributed today or yesterday)
-    const lastDate = bestStreakMember?.last_contribution_date;
-    let streakEndIdx = -1; // no active streak
-    if (lastDate) {
-      const last = new Date(lastDate);
-      const now = new Date();
-      const diffDays = Math.floor(
-        (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (diffDays <= 1) {
-        // Streak is active — ends at today (or yesterday if not contributed today)
-        streakEndIdx = diffDays === 0 ? todayIdx : todayIdx - 1;
-      }
+    if (!bestStreakInfo) {
+      return Array.from({ length: NUM_DOTS }, (_, i) => ({
+        label: String(i + 1),
+        done: false,
+        isCurrent: i === NUM_DOTS - 1,
+      }));
     }
 
-    const activeDays =
-      streakEndIdx >= 0 ? Math.min(maxStreak, streakEndIdx + 1) : 0;
+    const periodDays =
+      bestStreakInfo.frequency === "daily"
+        ? 1
+        : bestStreakInfo.frequency === "weekly"
+          ? 7
+          : bestStreakInfo.frequency === "biweekly"
+            ? 14
+            : bestStreakInfo.frequency === "monthly"
+              ? 30
+              : (bestStreakInfo.custom_frequency_days ?? 7);
 
-    return DAYS_SHORT.map((day, idx) => ({
-      day,
-      done:
-        streakEndIdx >= 0 &&
-        idx <= streakEndIdx &&
-        idx > streakEndIdx - activeDays,
-      isToday: idx === todayIdx,
-    }));
-  }, [DAYS_SHORT, maxStreak, bestStreakMember]);
+    const groupStart = new Date(bestStreakInfo.group_created_at);
+    const groupStartDate = new Date(
+      groupStart.getFullYear(),
+      groupStart.getMonth(),
+      groupStart.getDate(),
+    );
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.floor(
+      (today.getTime() - groupStartDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const currentPeriod = Math.max(0, Math.floor(diffDays / periodDays));
+
+    // Show the last NUM_DOTS periods ending at currentPeriod
+    const startPeriod = Math.max(0, currentPeriod - NUM_DOTS + 1);
+
+    return Array.from({ length: NUM_DOTS }, (_, i) => {
+      const period = startPeriod + i;
+      // A period is done if it's <= lastCompletedPeriod and within streak range
+      const lastCompleted = bestStreakInfo.last_completed_period;
+      const streakLen = bestStreakInfo.streak_days;
+      const done =
+        period <= lastCompleted && period > lastCompleted - streakLen;
+
+      return {
+        label: String(period + 1), // 1-indexed for display
+        done,
+        isCurrent: period === currentPeriod,
+      };
+    });
+  }, [bestStreakInfo]);
 
   const handleSettings = () => {
     router.push("/settings");
@@ -338,277 +357,288 @@ export default function ProfileScreen() {
         }
       >
         <View style={styles.webContent}>
-        {/* Header gradient */}
-        <LinearGradient
-          colors={["#1a1555", Colors.bg]}
-          style={styles.headerGradient}
-        >
-          <View style={styles.profileHero}>
-            <TouchableOpacity
-              style={styles.avatarWrap}
-              onPress={handleChangeAvatar}
-              disabled={isUploadingAvatar}
-            >
-              {isUploadingAvatar ? (
-                <View
-                  style={{
-                    width: 88,
-                    height: 88,
-                    borderRadius: 44,
-                    backgroundColor: Colors.surface2,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ActivityIndicator size="small" color={Colors.accent} />
-                </View>
-              ) : (
-                <Avatar name={user.name} size={88} imageUrl={user.avatar_url} />
-              )}
-              <View style={styles.editAvatarBtn}>
-                <Ionicons name="camera" size={12} color={Colors.text2} />
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userEmail}>{user.email}</Text>
-            <View style={styles.badges}>
-              <View style={styles.levelBadge}>
-                <View style={styles.levelBadgeContent}>
-                  <Ionicons
-                    name="trophy"
-                    size={14}
-                    color={Colors.accent2}
-                    style={{ marginRight: 4 }}
+          {/* Header gradient */}
+          <LinearGradient
+            colors={["#1a1555", Colors.bg]}
+            style={styles.headerGradient}
+          >
+            <View style={styles.profileHero}>
+              <TouchableOpacity
+                style={styles.avatarWrap}
+                onPress={handleChangeAvatar}
+                disabled={isUploadingAvatar}
+              >
+                {isUploadingAvatar ? (
+                  <View
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                      backgroundColor: Colors.surface2,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ActivityIndicator size="small" color={Colors.accent} />
+                  </View>
+                ) : (
+                  <Avatar
+                    name={user.name}
+                    size={88}
+                    imageUrl={user.avatar_url}
                   />
-                  <Text style={styles.levelBadgeText}>
-                    {t("level", lang)} {levelInfo.level}
-                  </Text>
+                )}
+                <View style={styles.editAvatarBtn}>
+                  <Ionicons name="camera" size={12} color={Colors.text2} />
                 </View>
-              </View>
-              {maxStreak > 0 && (
-                <View style={styles.streakBadge}>
-                  <View style={styles.streakBadgeContent}>
+              </TouchableOpacity>
+              <Text style={styles.userName}>{user.name}</Text>
+              <Text style={styles.userEmail}>{user.email}</Text>
+              <View style={styles.badges}>
+                <View style={styles.levelBadge}>
+                  <View style={styles.levelBadgeContent}>
                     <Ionicons
-                      name="flame"
+                      name="trophy"
                       size={14}
-                      color={Colors.yellow}
+                      color={Colors.accent2}
                       style={{ marginRight: 4 }}
                     />
-                    <Text style={styles.streakBadgeText}>
-                      {t("streak", lang)} {maxStreak}
+                    <Text style={styles.levelBadgeText}>
+                      {t("level", lang)} {levelInfo.level}
                     </Text>
                   </View>
                 </View>
-              )}
+                {maxStreak > 0 && (
+                  <View style={styles.streakBadge}>
+                    <View style={styles.streakBadgeContent}>
+                      <Ionicons
+                        name="flame"
+                        size={14}
+                        color={Colors.yellow}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={styles.streakBadgeText}>
+                        {t("streak", lang)} {maxStreak}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
+          </LinearGradient>
+
+          {/* Stats */}
+          <View style={styles.statsRow}>
+            <StatCard
+              label={t("totalSaved", lang)}
+              value={formatCurrency(totalSaved, settings.currency)}
+              color={Colors.green}
+            />
+            <StatCard
+              label={t("points", lang)}
+              value={totalPoints.toLocaleString()}
+              color={Colors.accent2}
+            />
+            <StatCard
+              label={t("medals", lang)}
+              value={String(earnedAchievements.size)}
+              color={Colors.yellow}
+            />
           </View>
-        </LinearGradient>
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <StatCard
-            label={t("totalSaved", lang)}
-            value={formatCurrency(totalSaved, settings.currency)}
-            color={Colors.green}
+          {/* Streak */}
+          <SectionHeader
+            title={t("weeklyStreak", lang)}
+            style={{ marginTop: Spacing.xl }}
           />
-          <StatCard
-            label={t("points", lang)}
-            value={totalPoints.toLocaleString()}
-            color={Colors.accent2}
-          />
-          <StatCard
-            label={t("medals", lang)}
-            value={String(earnedAchievements.size)}
-            color={Colors.yellow}
-          />
-        </View>
-
-        {/* Streak */}
-        <SectionHeader
-          title={t("weeklyStreak", lang)}
-          style={{ marginTop: Spacing.xl }}
-        />
-        <View style={{ paddingHorizontal: Spacing.xl }}>
-          <Card>
-            <View style={styles.streakRow}>
-              <View style={styles.streakTextBlock}>
-                <Text style={styles.streakNumber}>
-                  {maxStreak} {t("days", lang)}
-                </Text>
-                <Text style={styles.streakSub}>
-                  {maxStreak >= 7
-                    ? t("epicStreak", lang)
-                    : maxStreak >= 3
-                      ? t("goingWell", lang)
-                      : maxStreak >= 1
-                        ? t("keepItUp", lang)
-                        : t("startToday", lang)}
-                </Text>
+          <View style={{ paddingHorizontal: Spacing.xl }}>
+            <Card>
+              <View style={styles.streakRow}>
+                <View style={styles.streakTextBlock}>
+                  <Text style={styles.streakNumber}>
+                    {maxStreak} {t("days", lang)}
+                  </Text>
+                  <Text style={styles.streakSub}>
+                    {maxStreak >= 7
+                      ? t("epicStreak", lang)
+                      : maxStreak >= 3
+                        ? t("goingWell", lang)
+                        : maxStreak >= 1
+                          ? t("keepItUp", lang)
+                          : t("startToday", lang)}
+                  </Text>
+                </View>
+                <View style={styles.streakBigEmoji}>
+                  {Array.from({ length: Math.min(maxStreak, 7) }, (_, i) => (
+                    <Ionicons
+                      key={i}
+                      name="flame"
+                      size={12}
+                      color={Colors.yellow}
+                    />
+                  ))}
+                </View>
               </View>
-              <View style={styles.streakBigEmoji}>
-                {Array.from({ length: Math.min(maxStreak, 7) }, (_, i) => (
-                  <Ionicons
+              <View style={styles.streakDots}>
+                {streakDots.map((d, i) => (
+                  <View
                     key={i}
-                    name="flame"
-                    size={12}
-                    color={Colors.yellow}
-                  />
-                ))}
-              </View>
-            </View>
-            <View style={styles.streakDots}>
-              {streakDots.map((d, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.streakDot,
-                    d.done
-                      ? styles.streakDotDone
-                      : d.isToday
-                        ? styles.streakDotToday
-                        : styles.streakDotEmpty,
-                  ]}
-                >
-                  <Text
                     style={[
-                      styles.streakDotText,
-                      d.done ? { color: "#000" } : { color: Colors.text3 },
+                      styles.streakDot,
+                      d.done
+                        ? styles.streakDotDone
+                        : d.isCurrent
+                          ? styles.streakDotToday
+                          : styles.streakDotEmpty,
                     ]}
                   >
-                    {d.day}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        </View>
-
-        {/* Achievements */}
-        <SectionHeader
-          title={t("myMedals", lang)}
-          style={{ marginTop: Spacing.xl }}
-        />
-        <View style={styles.achievementsGrid}>
-          {allAchievements.map((type) => {
-            const a = ACHIEVEMENTS[type];
-            const earned = earnedAchievements.has(type);
-            return (
-              <View
-                key={type}
-                style={[styles.medalCard, earned && styles.medalCardEarned]}
-              >
-                <View
-                  style={[
-                    styles.medalIconContainer,
-                    !earned && styles.medalLocked,
-                  ]}
-                >
-                  <AchievementIcon type={type} size={28} />
-                </View>
-                <Text
-                  style={[styles.medalName, !earned && styles.medalLockedText]}
-                >
-                  {getAchievementText(type, lang).title}
-                </Text>
-                <View style={styles.medalStateRow}>
-                  {!earned ? (
-                    <Ionicons
-                      name="lock-closed"
-                      size={12}
-                      color={Colors.text3}
-                      style={styles.medalLockIcon}
-                    />
-                  ) : (
-                    <View style={styles.medalLockPlaceholder} />
-                  )}
-                </View>
+                    <Text
+                      style={[
+                        styles.streakDotText,
+                        d.done ? { color: "#000" } : { color: Colors.text3 },
+                      ]}
+                    >
+                      {d.label}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            );
-          })}
-        </View>
+            </Card>
+          </View>
 
-        {/* My groups summary */}
-        <SectionHeader
-          title={t("myGroups", lang)}
-          style={{ marginTop: Spacing.xl }}
-        />
-        <View style={{ paddingHorizontal: Spacing.xl, gap: Spacing.sm }}>
-          {groups.map((group) => {
-            const myMember = group.members?.find((m) => m.user_id === user.id);
-            return (
-              <Card
-                key={group.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: Spacing.md,
-                }}
-              >
-                <View style={styles.groupIconContainer}>
-                  {(() => {
-                    const groupIcon =
-                      TRIP_ICONS.find((icon) => icon.name === group.emoji) ||
-                      TRIP_ICONS[0];
-                    return (
-                      <Ionicons
-                        name={groupIcon.name as any}
-                        size={28}
-                        color={groupIcon.color}
-                      />
-                    );
-                  })()}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      fontWeight: "800",
-                      color: Colors.text,
-                      marginBottom: 4,
-                    }}
+          {/* Achievements */}
+          <SectionHeader
+            title={t("myMedals", lang)}
+            style={{ marginTop: Spacing.xl }}
+          />
+          <View style={styles.achievementsGrid}>
+            {allAchievements.map((type) => {
+              const a = ACHIEVEMENTS[type];
+              const earned = earnedAchievements.has(type);
+              return (
+                <View
+                  key={type}
+                  style={[styles.medalCard, earned && styles.medalCardEarned]}
+                >
+                  <View
+                    style={[
+                      styles.medalIconContainer,
+                      !earned && styles.medalLocked,
+                    ]}
                   >
-                    {group.name}
+                    <AchievementIcon type={type} size={28} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.medalName,
+                      !earned && styles.medalLockedText,
+                    ]}
+                  >
+                    {getAchievementText(type, lang).title}
                   </Text>
-                  <Text style={{ fontSize: FontSize.xs, color: Colors.text2 }}>
-                    {formatCurrency(
-                      myMember?.current_amount || 0,
-                      settings.currency,
-                    )}{" "}
-                    /{" "}
-                    {formatCurrency(
-                      myMember?.individual_goal || 0,
-                      settings.currency,
-                    )}{" "}
-                    · {group.progress_percent}% global
-                  </Text>
+                  <View style={styles.medalStateRow}>
+                    {!earned ? (
+                      <Ionicons
+                        name="lock-closed"
+                        size={12}
+                        color={Colors.text3}
+                        style={styles.medalLockIcon}
+                      />
+                    ) : (
+                      <View style={styles.medalLockPlaceholder} />
+                    )}
+                  </View>
                 </View>
-              </Card>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
 
-        {/* Settings */}
-        <View
-          style={{
-            padding: Spacing.xl,
-            gap: Spacing.md,
-            marginTop: Spacing.xl,
-          }}
-        >
-          <Button
-            title={t("settings", lang)}
-            variant="secondary"
-            onPress={handleSettings}
+          {/* My groups summary */}
+          <SectionHeader
+            title={t("myGroups", lang)}
+            style={{ marginTop: Spacing.xl }}
           />
-          <Button
-            title={t("signOut", lang)}
-            variant="danger"
-            onPress={handleSignOut}
-          />
-          <Text style={styles.version}>
-            GoalCrew v{Constants.expoConfig?.version ?? "1.0.0"} ·{" "}
-            {t("madeWithLove", lang)}
-          </Text>
-        </View>
+          <View style={{ paddingHorizontal: Spacing.xl, gap: Spacing.sm }}>
+            {groups.map((group) => {
+              const myMember = group.members?.find(
+                (m) => m.user_id === user.id,
+              );
+              return (
+                <Card
+                  key={group.id}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: Spacing.md,
+                  }}
+                >
+                  <View style={styles.groupIconContainer}>
+                    {(() => {
+                      const groupIcon =
+                        GROUP_ICONS.find((icon) => icon.name === group.emoji) ||
+                        GROUP_ICONS[0];
+                      return (
+                        <Ionicons
+                          name={groupIcon.name as any}
+                          size={28}
+                          color={groupIcon.color}
+                        />
+                      );
+                    })()}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontWeight: "800",
+                        color: Colors.text,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {group.name}
+                    </Text>
+                    <Text
+                      style={{ fontSize: FontSize.xs, color: Colors.text2 }}
+                    >
+                      {formatCurrency(
+                        myMember?.current_amount || 0,
+                        settings.currency,
+                      )}{" "}
+                      /{" "}
+                      {formatCurrency(
+                        myMember?.individual_goal || 0,
+                        settings.currency,
+                      )}{" "}
+                      · {group.progress_percent}% global
+                    </Text>
+                  </View>
+                </Card>
+              );
+            })}
+          </View>
+
+          {/* Settings */}
+          <View
+            style={{
+              padding: Spacing.xl,
+              gap: Spacing.md,
+              marginTop: Spacing.xl,
+            }}
+          >
+            <Button
+              title={t("settings", lang)}
+              variant="secondary"
+              onPress={handleSettings}
+            />
+            <Button
+              title={t("signOut", lang)}
+              variant="danger"
+              onPress={handleSignOut}
+            />
+            <Text style={styles.version}>
+              GoalCrew v{Constants.expoConfig?.version ?? "1.0.0"} ·{" "}
+              {t("madeWithLove", lang)}
+            </Text>
+          </View>
         </View>
       </ScrollView>
 

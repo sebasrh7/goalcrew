@@ -30,7 +30,8 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/favicon.png"
     },
     "platforms": ["android", "ios", "web"],
     "plugins": [
@@ -55,7 +56,13 @@
           "iosUrlScheme": "com.googleusercontent.apps.803759521905-nhf663l36l8gsirbb65rbrmpiqsvekhp"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite a GoalCrew usar la cámara para escanear códigos QR."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

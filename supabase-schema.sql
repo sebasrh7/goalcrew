@@ -60,7 +60,7 @@ create type achievement_type as enum (
 create table public.groups (
   id                    uuid default uuid_generate_v4() primary key,
   name                  text not null,
-  emoji                 text default '✈️',
+  emoji                 text default 'sunny',
   deadline              date not null,
   goal_amount           numeric not null check (goal_amount > 0),
   frequency             frequency_type default 'weekly' not null,
@@ -83,6 +83,7 @@ create table public.group_members (
   streak_days             integer default 0 not null,
   total_points            integer default 0 not null,
   last_contribution_date  date,
+  last_completed_period   integer default -1 not null,
   status                  member_status default 'on_track',
   joined_at               timestamptz default now() not null,
   unique(group_id, user_id)
@@ -90,12 +91,12 @@ create table public.group_members (
 
 -- ─── CONTRIBUTIONS TABLE ──────────────────────────────────────────────────────
 create table public.contributions (
-  id          uuid default uuid_generate_v4() primary key,
-  user_id     uuid references public.users(id) on delete cascade not null,
-  group_id    uuid references public.groups(id) on delete cascade not null,
-  amount      numeric not null check (amount > 0),
-  note        text,
-  created_at  timestamptz default now() not null
+  id            uuid default uuid_generate_v4() primary key,
+  user_id       uuid references public.users(id) on delete cascade not null,
+  group_id      uuid references public.groups(id) on delete cascade not null,
+  amount        numeric not null check (amount > 0),
+  note          text,
+  created_at    timestamptz default now() not null
 );
 
 -- ─── ACHIEVEMENTS TABLE ───────────────────────────────────────────────────────
@@ -116,12 +117,8 @@ create table public.user_settings (
   currency                  varchar default 'USD' not null,
   theme                     varchar default 'light' not null,
   push_notifications        boolean default true,
-  email_notifications       boolean default true,
   contribution_reminders    boolean default true,
   achievement_notifications boolean default true,
-  public_profile            boolean default true,
-  show_achievements         boolean default true,
-  show_stats                boolean default true,
   created_at                timestamptz default timezone('utc', now()) not null,
   updated_at                timestamptz default timezone('utc', now()) not null
 );
@@ -134,7 +131,8 @@ create table public.push_tokens (
   platform    varchar not null,
   is_active   boolean default true,
   created_at  timestamptz default timezone('utc', now()) not null,
-  updated_at  timestamptz default timezone('utc', now()) not null
+  updated_at  timestamptz default timezone('utc', now()) not null,
+  unique(user_id, platform)
 );
 
 -- ─── HELPER: updated_at trigger ───────────────────────────────────────────────
@@ -161,44 +159,96 @@ create trigger handle_groups_updated_at
 
 -- ─── FUNCTIONS & RPCs ─────────────────────────────────────────────────────────
 
--- Update member amount, streak, points and status after a contribution
+-- Update member amount, streak (period-based), points and status after a contribution
+-- Streak counts consecutive PERIODS where the user met the per-period target.
+-- A period is completed when the sum of contributions in that period >= per_period_target.
+-- Excess contributions do NOT carry over to the next period (encourages consistent engagement).
 create or replace function public.update_member_after_contribution(
   p_user_id uuid, p_group_id uuid, p_amount numeric
 ) returns void language plpgsql security definer
 set search_path to 'public' as $$
 declare
   v_member record;
+  v_group record;
   v_today date := current_date;
+  v_period_days integer;
+  v_group_start date;
+  v_current_period integer;
+  v_period_start date;
+  v_period_end date;
+  v_period_contributions numeric;
+  v_per_period_target numeric;
+  v_total_periods integer;
   v_new_streak integer;
-  v_base_points integer;
-  v_streak_bonus integer := 5;
-  v_total_points integer;
+  v_streak_bonus integer := 0;
+  v_goal_already_met boolean;
 begin
   select * into v_member from group_members
   where user_id = p_user_id and group_id = p_group_id for update;
-
   if not found then raise exception 'Member not found'; end if;
 
-  if v_member.last_contribution_date is null then v_new_streak := 1;
-  elsif v_member.last_contribution_date = v_today - interval '1 day' then v_new_streak := v_member.streak_days + 1;
-  elsif v_member.last_contribution_date = v_today then v_new_streak := v_member.streak_days;
-  else v_new_streak := 1;
+  select * into v_group from groups where id = p_group_id;
+
+  v_period_days := case v_group.frequency
+    when 'daily' then 1
+    when 'weekly' then 7
+    when 'biweekly' then 14
+    when 'monthly' then 30
+    when 'custom' then coalesce(v_group.custom_frequency_days, 7)
+    else 7
+  end;
+
+  v_group_start := v_group.created_at::date;
+  v_current_period := greatest(0, floor((v_today - v_group_start)::numeric / v_period_days));
+  v_period_start := v_group_start + (v_current_period * v_period_days);
+  v_period_end := v_period_start + v_period_days - 1;
+  v_total_periods := greatest(1, ceil(((v_group.deadline - v_group_start)::numeric) / v_period_days));
+  v_per_period_target := v_member.individual_goal / v_total_periods;
+  v_goal_already_met := (v_member.current_amount + p_amount) >= v_member.individual_goal;
+
+  -- Sum contributions in the current period (including the just-inserted one)
+  select coalesce(sum(amount), 0) into v_period_contributions
+  from contributions
+  where user_id = p_user_id and group_id = p_group_id
+    and created_at::date >= v_period_start and created_at::date <= v_period_end;
+
+  if v_period_contributions >= v_per_period_target or v_goal_already_met then
+    -- Period is completed
+    if v_member.last_completed_period = v_current_period then
+      v_new_streak := v_member.streak_days; v_streak_bonus := 0;
+    elsif v_member.last_completed_period = v_current_period - 1 then
+      v_new_streak := v_member.streak_days + 1; v_streak_bonus := 5;
+    elsif v_member.last_completed_period < 0 then
+      v_new_streak := 1; v_streak_bonus := 5;
+    else
+      v_new_streak := 1; v_streak_bonus := 5;
+    end if;
+
+    update group_members set
+      current_amount = current_amount + p_amount,
+      streak_days = v_new_streak,
+      last_completed_period = v_current_period,
+      total_points = v_member.total_points + floor(p_amount * 0.25) + v_streak_bonus,
+      last_contribution_date = v_today,
+      status = case
+        when (current_amount + p_amount) / nullif(individual_goal, 0) >= 0.9 then 'on_track'::member_status
+        when (current_amount + p_amount) / nullif(individual_goal, 0) >= 0.6 then 'at_risk'::member_status
+        else 'behind'::member_status
+      end
+    where user_id = p_user_id and group_id = p_group_id;
+  else
+    -- Period NOT yet completed — update amount, no streak change
+    update group_members set
+      current_amount = current_amount + p_amount,
+      total_points = v_member.total_points + floor(p_amount * 0.25),
+      last_contribution_date = v_today,
+      status = case
+        when (current_amount + p_amount) / nullif(individual_goal, 0) >= 0.9 then 'on_track'::member_status
+        when (current_amount + p_amount) / nullif(individual_goal, 0) >= 0.6 then 'at_risk'::member_status
+        else 'behind'::member_status
+      end
+    where user_id = p_user_id and group_id = p_group_id;
   end if;
-
-  v_base_points := floor(p_amount * 0.25);
-  v_total_points := v_member.total_points + v_base_points + v_streak_bonus;
-
-  update group_members set
-    current_amount = current_amount + p_amount,
-    streak_days = v_new_streak,
-    total_points = v_total_points,
-    last_contribution_date = v_today,
-    status = case
-      when (current_amount + p_amount) / individual_goal >= 0.9 then 'on_track'::member_status
-      when (current_amount + p_amount) / individual_goal >= 0.6 then 'at_risk'::member_status
-      else 'behind'::member_status
-    end
-  where user_id = p_user_id and group_id = p_group_id;
 end;
 $$;
 
@@ -212,6 +262,54 @@ begin
   set current_amount = current_amount + p_amount,
       last_contribution_date = current_date
   where user_id = p_user_id and group_id = p_group_id;
+end;
+$$;
+
+-- Create a new group + auto-join the creator (SECURITY DEFINER)
+create or replace function public.create_group(
+  p_name text,
+  p_emoji text,
+  p_deadline date,
+  p_goal_amount numeric,
+  p_frequency frequency_type,
+  p_custom_frequency_days integer default null,
+  p_division_type division_type default 'equal'
+) returns jsonb language plpgsql security definer set search_path to 'public' as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_group_id uuid;
+  v_invite_code text;
+begin
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  -- Generate unique 8-char invite code
+  loop
+    v_invite_code := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 8));
+    exit when not exists (select 1 from public.groups where invite_code = v_invite_code);
+  end loop;
+
+  insert into public.groups (name, emoji, deadline, goal_amount, frequency, custom_frequency_days, division_type, invite_code, created_by)
+  values (p_name, p_emoji, p_deadline, p_goal_amount, p_frequency, p_custom_frequency_days, p_division_type, v_invite_code, v_user_id)
+  returning id into v_group_id;
+
+  -- Auto-join the creator as first member
+  insert into public.group_members (group_id, user_id, individual_goal)
+  values (v_group_id, v_user_id, p_goal_amount);
+
+  return jsonb_build_object(
+    'id', v_group_id,
+    'name', p_name,
+    'emoji', p_emoji,
+    'deadline', p_deadline,
+    'goal_amount', p_goal_amount,
+    'frequency', p_frequency,
+    'custom_frequency_days', p_custom_frequency_days,
+    'division_type', p_division_type,
+    'invite_code', v_invite_code,
+    'created_by', v_user_id
+  );
 end;
 $$;
 
@@ -236,8 +334,8 @@ begin
     else v_group.goal_amount
   end;
 
-  insert into public.group_members (group_id, user_id, individual_goal, current_amount, streak_days, total_points)
-  values (v_group.id, v_user_id, v_goal_amount, 0, 0, 0);
+  insert into public.group_members (group_id, user_id, individual_goal, current_amount, streak_days, total_points, last_completed_period)
+  values (v_group.id, v_user_id, v_goal_amount, 0, 0, 0, -1);
 
   return jsonb_build_object(
     'id', v_group.id, 'name', v_group.name, 'emoji', v_group.emoji,
@@ -307,7 +405,7 @@ begin
 end;
 $$;
 
--- Update group (creator only)
+-- Update group (creator only) — resets streaks if frequency changes
 create or replace function public.update_group(
   p_group_id uuid,
   p_name text default null,
@@ -321,38 +419,79 @@ returns void language plpgsql security definer
 set search_path to 'public' as $$
 declare
   v_group record;
+  v_frequency_changed boolean := false;
 begin
   select * into v_group from public.groups where id = p_group_id and created_by = auth.uid();
   if not found then raise exception 'NOT_CREATOR'; end if;
+
+  if p_frequency is not null and p_frequency::frequency_type <> v_group.frequency then
+    v_frequency_changed := true;
+  end if;
+  if p_custom_frequency_days is not null and v_group.frequency = 'custom'
+     and p_custom_frequency_days <> coalesce(v_group.custom_frequency_days, 0) then
+    v_frequency_changed := true;
+  end if;
 
   update public.groups set
     name = coalesce(p_name, name),
     emoji = coalesce(p_emoji, emoji),
     deadline = coalesce(p_deadline, deadline),
     goal_amount = coalesce(p_goal_amount, goal_amount),
-    frequency = coalesce(p_frequency, frequency),
+    frequency = coalesce(p_frequency, frequency::text)::frequency_type,
     custom_frequency_days = coalesce(p_custom_frequency_days, custom_frequency_days),
     updated_at = now()
   where id = p_group_id;
 
-  -- If equal division, update all members' goals
   if v_group.division_type = 'equal' and p_goal_amount is not null then
     update public.group_members set
-      individual_goal = p_goal_amount / (select count(*) from public.group_members where group_id = p_group_id)
+      individual_goal = p_goal_amount
+    where group_id = p_group_id;
+  end if;
+
+  -- Reset all streaks when frequency changes (period boundaries shift)
+  if v_frequency_changed then
+    update public.group_members set
+      streak_days = 0,
+      last_completed_period = -1
     where group_id = p_group_id;
   end if;
 end;
 $$;
 
--- Delete contribution (author only, reverts member amount)
+-- Delete contribution (author only, reverts member amount, recalculates streak for current period)
 create or replace function public.delete_contribution(p_contribution_id uuid)
 returns void language plpgsql security definer
 set search_path to 'public' as $$
 declare
   v_contrib record;
+  v_group record;
+  v_member record;
+  v_period_days integer;
+  v_group_start date;
+  v_current_period integer;
+  v_contrib_period integer;
+  v_period_start date;
+  v_period_end date;
+  v_period_contributions numeric;
+  v_per_period_target numeric;
+  v_total_periods integer;
+  v_today date := current_date;
 begin
   select * into v_contrib from public.contributions where id = p_contribution_id and user_id = auth.uid();
   if not found then raise exception 'NOT_AUTHOR'; end if;
+
+  select * into v_group from public.groups where id = v_contrib.group_id;
+  select * into v_member from public.group_members
+  where group_id = v_contrib.group_id and user_id = auth.uid();
+
+  v_period_days := case v_group.frequency
+    when 'daily' then 1 when 'weekly' then 7 when 'biweekly' then 14
+    when 'monthly' then 30 when 'custom' then coalesce(v_group.custom_frequency_days, 7) else 7
+  end;
+
+  v_group_start := v_group.created_at::date;
+  v_contrib_period := floor((v_contrib.created_at::date - v_group_start)::numeric / v_period_days);
+  v_current_period := floor((v_today - v_group_start)::numeric / v_period_days);
 
   update public.group_members set
     current_amount = current_amount - v_contrib.amount
@@ -363,10 +502,31 @@ begin
   where id = v_contrib.group_id;
 
   delete from public.contributions where id = p_contribution_id;
+
+  -- Re-evaluate period if the deleted contribution was in the current completed period
+  if v_contrib_period = v_current_period and v_member.last_completed_period = v_current_period then
+    v_total_periods := greatest(1, ceil(((v_group.deadline - v_group_start)::numeric) / v_period_days));
+    v_per_period_target := v_member.individual_goal / v_total_periods;
+    v_period_start := v_group_start + (v_current_period * v_period_days);
+    v_period_end := v_period_start + v_period_days - 1;
+
+    select coalesce(sum(amount), 0) into v_period_contributions
+    from contributions
+    where user_id = auth.uid() and group_id = v_contrib.group_id
+      and created_at::date >= v_period_start and created_at::date <= v_period_end;
+
+    if v_period_contributions < v_per_period_target
+       and (v_member.current_amount - v_contrib.amount) < v_member.individual_goal then
+      update public.group_members set
+        last_completed_period = v_member.last_completed_period - 1,
+        streak_days = greatest(0, v_member.streak_days - 1)
+      where group_id = v_contrib.group_id and user_id = auth.uid();
+    end if;
+  end if;
 end;
 $$;
 
--- Update contribution (author only, adjusts member total)
+-- Update contribution (author only, adjusts member total, recalculates streak for current period)
 create or replace function public.update_contribution(
   p_contribution_id uuid,
   p_amount numeric default null,
@@ -376,7 +536,19 @@ returns void language plpgsql security definer
 set search_path to 'public' as $$
 declare
   v_contrib record;
+  v_group record;
+  v_member record;
   v_diff numeric;
+  v_period_days integer;
+  v_group_start date;
+  v_contrib_period integer;
+  v_current_period integer;
+  v_period_start date;
+  v_period_end date;
+  v_period_contributions numeric;
+  v_per_period_target numeric;
+  v_total_periods integer;
+  v_today date := current_date;
 begin
   select * into v_contrib from public.contributions where id = p_contribution_id and user_id = auth.uid();
   if not found then raise exception 'NOT_AUTHOR'; end if;
@@ -396,6 +568,49 @@ begin
     update public.groups set
       total_saved = total_saved + v_diff
     where id = v_contrib.group_id;
+
+    select * into v_group from public.groups where id = v_contrib.group_id;
+    select * into v_member from public.group_members
+    where group_id = v_contrib.group_id and user_id = auth.uid();
+
+    v_period_days := case v_group.frequency
+      when 'daily' then 1 when 'weekly' then 7 when 'biweekly' then 14
+      when 'monthly' then 30 when 'custom' then coalesce(v_group.custom_frequency_days, 7) else 7
+    end;
+
+    v_group_start := v_group.created_at::date;
+    v_contrib_period := floor((v_contrib.created_at::date - v_group_start)::numeric / v_period_days);
+    v_current_period := floor((v_today - v_group_start)::numeric / v_period_days);
+
+    if v_contrib_period = v_current_period then
+      v_total_periods := greatest(1, ceil(((v_group.deadline - v_group_start)::numeric) / v_period_days));
+      v_per_period_target := v_member.individual_goal / v_total_periods;
+      v_period_start := v_group_start + (v_current_period * v_period_days);
+      v_period_end := v_period_start + v_period_days - 1;
+
+      select coalesce(sum(amount), 0) into v_period_contributions
+      from contributions
+      where user_id = auth.uid() and group_id = v_contrib.group_id
+        and created_at::date >= v_period_start and created_at::date <= v_period_end;
+
+      if v_period_contributions >= v_per_period_target and v_member.last_completed_period < v_current_period then
+        if v_member.last_completed_period = v_current_period - 1 then
+          update public.group_members set
+            streak_days = streak_days + 1, last_completed_period = v_current_period, total_points = total_points + 5
+          where group_id = v_contrib.group_id and user_id = auth.uid();
+        else
+          update public.group_members set
+            streak_days = 1, last_completed_period = v_current_period, total_points = total_points + 5
+          where group_id = v_contrib.group_id and user_id = auth.uid();
+        end if;
+      elsif v_period_contributions < v_per_period_target
+            and v_member.last_completed_period = v_current_period
+            and v_member.current_amount < v_member.individual_goal then
+        update public.group_members set
+          streak_days = greatest(0, streak_days - 1), last_completed_period = v_current_period - 1
+        where group_id = v_contrib.group_id and user_id = auth.uid();
+      end if;
+    end if;
   end if;
 end;
 $$;

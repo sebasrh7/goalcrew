@@ -45,7 +45,9 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
       // Read back updated member data (after server-side RPC)
       const { data: member } = await supabase
         .from("group_members")
-        .select("streak_days, current_amount, individual_goal")
+        .select(
+          "streak_days, current_amount, individual_goal, last_completed_period",
+        )
         .eq("user_id", user.id)
         .eq("group_id", groupId)
         .single();
@@ -132,11 +134,11 @@ async function checkAndUnlockAchievements(
 
   if (existingContribs?.length === 1) toUnlock.push("first_contribution");
 
-  // Streak achievements — independent checks (no else-if)
-  const effectiveStreak = streakDays + 1;
-  if (effectiveStreak >= 3) toUnlock.push("streak_3");
-  if (effectiveStreak >= 7) toUnlock.push("streak_7");
-  if (effectiveStreak >= 30) toUnlock.push("streak_30");
+  // Streak achievements — streakDays is already the server-calculated value
+  // (consecutive periods completed, not days)
+  if (streakDays >= 3) toUnlock.push("streak_3");
+  if (streakDays >= 7) toUnlock.push("streak_7");
+  if (streakDays >= 30) toUnlock.push("streak_30");
 
   // Big saver — scale threshold by currency scale
   // Default $100 USD equivalent; for COP (scale 4000) that's ~400,000 COP, etc.
@@ -179,7 +181,7 @@ async function checkAndUnlockAchievements(
   }
 
   // Most consistent: streak >= 7 AND highest streak in the group
-  if (effectiveStreak >= 7) {
+  if (streakDays >= 7) {
     const { data: groupMembers } = await supabase
       .from("group_members")
       .select("streak_days")
@@ -189,7 +191,7 @@ async function checkAndUnlockAchievements(
     const highestOtherStreak =
       groupMembers?.reduce((max, m) => Math.max(max, m.streak_days ?? 0), 0) ??
       0;
-    if (effectiveStreak > highestOtherStreak) {
+    if (streakDays > highestOtherStreak) {
       toUnlock.push("most_consistent");
     }
   }

@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +20,7 @@ import {
   FontSize,
   Radius,
   Spacing,
+  extractInviteCode,
   getErrorMessage,
 } from "../../src/constants";
 import { formatCurrency } from "../../src/lib/currency";
@@ -27,6 +31,7 @@ import { useSettingsStore } from "../../src/store/settingsStore";
 
 export default function JoinGroupScreen() {
   const router = useRouter();
+  const { code: codeParam } = useLocalSearchParams<{ code?: string }>();
   const { joinGroup, isLoading } = useGroupsStore();
   const { settings } = useSettingsStore();
   const lang = settings.language;
@@ -38,6 +43,20 @@ export default function JoinGroupScreen() {
     goal_amount: number;
   } | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+
+  // Pre-fill code from URL query param (?code=ABC123)
+  useEffect(() => {
+    if (codeParam) {
+      const clean = codeParam
+        .replace(/[^A-Za-z0-9]/g, "")
+        .toUpperCase()
+        .slice(0, 8);
+      if (clean.length >= 6) setCode(clean);
+    }
+  }, [codeParam]);
 
   // Alert modal state
   const [alertModal, setAlertModal] = useState<{
@@ -146,6 +165,50 @@ export default function JoinGroupScreen() {
     }
   };
 
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    if (scanned) return;
+    setScanned(true);
+    const extracted = extractInviteCode(data);
+    if (extracted) {
+      setCode(extracted);
+      setShowScanner(false);
+      setScanned(false);
+    } else {
+      showAlert(t("invalidCode", lang), t("qrInvalidCode", lang), {
+        icon: "alert-circle",
+        iconColor: Colors.yellow,
+      });
+      // Allow re-scan after 2 seconds
+      setTimeout(() => setScanned(false), 2000);
+    }
+  };
+
+  const openScanner = async () => {
+    if (Platform.OS === "web") {
+      showAlert(t("scanQR", lang), t("qrNotAvailableWeb", lang), {
+        icon: "information-circle",
+        iconColor: Colors.accent,
+      });
+      return;
+    }
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        showAlert(
+          t("cameraPermission", lang),
+          t("cameraPermissionDesc", lang),
+          {
+            icon: "camera-outline",
+            iconColor: Colors.accent2,
+          },
+        );
+        return;
+      }
+    }
+    setScanned(false);
+    setShowScanner(true);
+  };
+
   const formatCode = (text: string) => {
     const clean = text
       .replace(/[^A-Za-z0-9]/g, "")
@@ -228,11 +291,60 @@ export default function JoinGroupScreen() {
 
         <Text style={styles.or}>{t("or", lang)}</Text>
 
-        <TouchableOpacity style={styles.scanBtn}>
+        <TouchableOpacity
+          style={styles.scanBtn}
+          onPress={openScanner}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="qr-code-outline"
+            size={22}
+            color={Colors.accent2}
+            style={{ marginRight: Spacing.sm }}
+          />
           <Text style={styles.scanBtnText}>{t("scanQR", lang)}</Text>
-          <Text style={styles.scanBtnSub}>{t("comingSoon", lang)}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* QR Scanner Modal */}
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        onRequestClose={() => setShowScanner(false)}
+      >
+        <View style={styles.scannerContainer}>
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          />
+          {/* Overlay */}
+          <View style={styles.scannerOverlay}>
+            <View style={styles.scannerHeader}>
+              <TouchableOpacity
+                onPress={() => setShowScanner(false)}
+                style={styles.scannerCloseBtn}
+              >
+                <Ionicons name="close" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.scannerTitle}>{t("scanQR", lang)}</Text>
+              <View style={{ width: 36 }} />
+            </View>
+
+            <View style={styles.scannerFrame}>
+              {/* Corner decorations */}
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+            </View>
+
+            <Text style={styles.scannerHint}>{t("pointCameraAtQR", lang)}</Text>
+          </View>
+        </View>
+      </Modal>
 
       <AlertModal
         visible={alertModal.visible}
@@ -325,5 +437,80 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.text,
   },
-  scanBtnSub: { fontSize: FontSize.xs, color: Colors.text3, marginTop: 4 },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  scannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: Spacing.xl,
+  },
+  scannerCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scannerTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: "900",
+    color: "#FFFFFF",
+  },
+  scannerFrame: {
+    width: 240,
+    height: 240,
+    position: "relative",
+  },
+  corner: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    borderColor: Colors.accent,
+    borderWidth: 3,
+  },
+  cornerTL: {
+    top: 0,
+    left: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 12,
+  },
+  cornerTR: {
+    top: 0,
+    right: 0,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+    borderTopRightRadius: 12,
+  },
+  cornerBL: {
+    bottom: 0,
+    left: 0,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+  },
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    borderBottomRightRadius: 12,
+  },
+  scannerHint: {
+    fontSize: FontSize.base,
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center",
+    fontWeight: "600",
+  },
 });

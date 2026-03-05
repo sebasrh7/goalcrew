@@ -188,8 +188,8 @@ export function getMemberStatus(
   return "behind";
 }
 
-// ─── Trip Icons ─────────────────────────────────────────────────────────────
-export const TRIP_ICONS = [
+// ─── Group Icons ────────────────────────────────────────────────────────────
+export const GROUP_ICONS = [
   { name: "sunny", color: "#00B4D8" },
   { name: "briefcase", color: "#6C757D" },
   { name: "snow", color: "#0077BE" },
@@ -208,4 +208,31 @@ export const TRIP_ICONS = [
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+// ─── Web App URL ──────────────────────────────────────────────────────────────
+const WEB_APP_URL =
+  process.env.EXPO_PUBLIC_WEB_APP_URL ?? "https://goalcrew.vercel.app";
+
+/** Build a full invite URL that opens the join screen on the web app */
+export function getInviteUrl(inviteCode: string): string {
+  return `${WEB_APP_URL}/group/join?code=${encodeURIComponent(inviteCode)}`;
+}
+
+/** Extract an invite code from a URL or plain text */
+export function extractInviteCode(data: string): string | null {
+  // Try to extract ?code= from URL
+  try {
+    const url = new URL(data);
+    const code = url.searchParams.get("code");
+    if (code && code.length >= 6) return code.toUpperCase().slice(0, 8);
+  } catch {
+    // Not a URL — treat as plain code
+  }
+  // Fallback: clean raw text
+  const clean = data
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, 8);
+  return clean.length >= 6 ? clean : null;
 }
