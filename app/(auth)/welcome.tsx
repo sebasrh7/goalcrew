@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -17,12 +17,12 @@ import { AlertModal } from "../../src/components/AlertModal";
 import { LandingPage } from "../../src/components/LandingPage";
 import { Button } from "../../src/components/UI";
 import {
-  Colors,
   FontSize,
   Spacing,
   getErrorMessage,
 } from "../../src/constants";
 import { getCurrentLanguage, t } from "../../src/lib/i18n";
+import { useColors } from "../../src/lib/useColors";
 import { supabase } from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
 
@@ -63,6 +63,7 @@ function getSlides() {
 }
 
 export default function WelcomeScreen() {
+  const C = useColors();
   const router = useRouter();
   const { signIn } = useAuthStore();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -71,6 +72,7 @@ export default function WelcomeScreen() {
   const lang = getCurrentLanguage();
   const SLIDES = getSlides();
   const [showLanding, setShowLanding] = useState(Platform.OS === "web");
+  const styles = useMemo(() => createStyles(C), [C]);
 
   // Alert modal state
   const [alertModal, setAlertModal] = useState<{
@@ -101,10 +103,12 @@ export default function WelcomeScreen() {
       try {
         await signIn();
 
-        // Give a moment for state to update
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        router.replace("/(tabs)");
+        // On web, signInWithOAuth redirects the browser to Google.
+        // Navigation is handled by initAuthListener when the user returns.
+        if (Platform.OS !== "web") {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          router.replace("/(tabs)");
+        }
       } catch (error: unknown) {
         // Check if user was actually created but session failed
         const {
@@ -120,7 +124,7 @@ export default function WelcomeScreen() {
           title: t("loginError", lang),
           message: getErrorMessage(error) || t("loginErrorMsg", lang),
           icon: "alert-circle",
-          iconColor: Colors.red,
+          iconColor: C.red,
           buttons: [
             {
               text: t("retry", lang),
@@ -143,7 +147,7 @@ export default function WelcomeScreen() {
       ) : (
         <SafeAreaView style={styles.container}>
           <LinearGradient
-            colors={["#1a1555", "#0b0f1a"]}
+            colors={C.gradientHero as any}
             style={StyleSheet.absoluteFill}
           />
 
@@ -255,10 +259,10 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
+    backgroundColor: C.bg,
   },
   logo: {
     flexDirection: "row",
@@ -271,7 +275,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 20,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
   },
   slide: {
     width,
@@ -286,18 +290,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.display,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     textAlign: "center",
     lineHeight: 40,
     marginBottom: Spacing.lg,
     letterSpacing: -0.5,
   },
   titleHighlight: {
-    color: Colors.accent2,
+    color: C.accent2,
   },
   description: {
     fontSize: FontSize.md,
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
     lineHeight: 24,
   },
@@ -311,7 +315,7 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.accent,
+    backgroundColor: C.accent,
   },
   actions: {
     paddingHorizontal: Spacing.xl,
@@ -324,6 +328,6 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: FontSize.base,
-    color: Colors.text2,
+    color: C.text2,
   },
 });

@@ -10,7 +10,9 @@
     "web:build": "expo export --platform web",
     "build:apk": "eas build --platform android --profile preview",
     "build:preview": "eas build --profile preview",
-    "build:production": "eas build --profile production"
+    "build:production": "eas build --profile production",
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -60,8 +62,11 @@
   },
   "devDependencies": {
     "@babel/core": "~7.24.7",
+    "@types/jest": "^30.0.0",
     "@types/react": "^19.2.14",
     "babel-plugin-module-resolver": "^5.0.2",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
   }
 }

@@ -13,9 +13,10 @@ import {
 import { enUS, es, fr } from "date-fns/locale";
 import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { FontSize, Radius, Spacing } from "../constants";
 import { formatCurrency } from "../lib/currency";
 import { Language, t } from "../lib/i18n";
+import { useColors } from "../lib/useColors";
 import { Contribution } from "../types";
 
 interface ContributionCalendarProps {
@@ -37,6 +38,7 @@ export function ContributionCalendar({
   currency,
   lang,
 }: ContributionCalendarProps) {
+  const C = useColors();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -83,12 +85,14 @@ export function ContributionCalendar({
 
   const monthLabel = format(currentMonth, "MMMM yyyy", { locale: dateLocale });
 
+  const styles = useMemo(() => createStyles(C), [C]);
+
   return (
     <View style={styles.container}>
       {/* Month navigation */}
       <View style={styles.monthNav}>
         <TouchableOpacity onPress={goToPrevMonth} style={styles.navBtn}>
-          <Ionicons name="chevron-back" size={20} color={Colors.text} />
+          <Ionicons name="chevron-back" size={20} color={C.text} />
         </TouchableOpacity>
         <TouchableOpacity onPress={goToToday}>
           <Text style={styles.monthLabel}>
@@ -96,7 +100,7 @@ export function ContributionCalendar({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={goToNextMonth} style={styles.navBtn}>
-          <Ionicons name="chevron-forward" size={20} color={Colors.text} />
+          <Ionicons name="chevron-forward" size={20} color={C.text} />
         </TouchableOpacity>
       </View>
 
@@ -148,12 +152,12 @@ export function ContributionCalendar({
               <View style={styles.dotRow}>
                 {hasUserContrib && (
                   <View
-                    style={[styles.dot, { backgroundColor: Colors.green }]}
+                    style={[styles.dot, { backgroundColor: C.green }]}
                   />
                 )}
                 {hasGroupContrib && !hasUserContrib && (
                   <View
-                    style={[styles.dot, { backgroundColor: Colors.accent2 }]}
+                    style={[styles.dot, { backgroundColor: C.accent2 }]}
                   />
                 )}
               </View>
@@ -182,7 +186,7 @@ export function ContributionCalendar({
                     styles.detailDot,
                     {
                       backgroundColor:
-                        c.user_id === userId ? Colors.green : Colors.accent2,
+                        c.user_id === userId ? C.green : C.accent2,
                     },
                   ]}
                 />
@@ -207,7 +211,7 @@ export function ContributionCalendar({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   container: {
     gap: Spacing.sm,
   },
@@ -224,7 +228,7 @@ const styles = StyleSheet.create({
   monthLabel: {
     fontSize: FontSize.lg,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
     textTransform: "capitalize",
   },
   weekRow: {
@@ -233,7 +237,7 @@ const styles = StyleSheet.create({
   dayLabel: {
     fontSize: FontSize.xs,
     fontWeight: "700",
-    color: Colors.text3,
+    color: C.text3,
     textAlign: "center",
   },
   grid: {
@@ -248,17 +252,17 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   dayCellSelected: {
-    backgroundColor: Colors.accent,
+    backgroundColor: C.accent,
     borderRadius: Radius.sm,
   },
   dayCellToday: {
     borderWidth: 1,
-    borderColor: Colors.accent2,
+    borderColor: C.accent2,
     borderRadius: Radius.sm,
   },
   dayNumber: {
     fontSize: FontSize.sm,
-    color: Colors.text,
+    color: C.text,
     fontWeight: "600",
   },
   dayNumberSelected: {
@@ -266,7 +270,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   dayNumberToday: {
-    color: Colors.accent2,
+    color: C.accent2,
     fontWeight: "900",
   },
   dotRow: {
@@ -282,18 +286,18 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     borderTopWidth: 1,
-    borderTopColor: Colors.surface3,
+    borderTopColor: C.surface3,
     paddingTop: Spacing.md,
     gap: Spacing.sm,
   },
   detailDate: {
     fontSize: FontSize.base,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
   },
   detailEmpty: {
     fontSize: FontSize.sm,
-    color: Colors.text3,
+    color: C.text3,
     textAlign: "center",
     paddingVertical: Spacing.md,
   },
@@ -311,17 +315,17 @@ const styles = StyleSheet.create({
   },
   detailName: {
     fontSize: FontSize.sm,
-    color: Colors.text,
+    color: C.text,
   },
   detailNote: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
     fontStyle: "italic",
     marginTop: 1,
   },
   detailTime: {
     fontSize: FontSize.xs,
-    color: Colors.text3,
+    color: C.text3,
     marginTop: 4,
   },
 });

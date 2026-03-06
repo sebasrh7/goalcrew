@@ -22,10 +22,22 @@ export const CURRENCIES: Record<string, CurrencyConfig> = {
 };
 
 // Mapeo de idioma a locale para Intl.NumberFormat
+// Includes regional variants for proper number formatting
 const LANGUAGE_TO_LOCALE: Record<string, string> = {
-  es: "es",
+  es: "es-CO",
   en: "en-US",
   fr: "fr-FR",
+};
+
+// Currency-specific locale overrides for correct formatting
+const CURRENCY_LOCALE: Record<string, string> = {
+  COP: "es-CO",
+  MXN: "es-MX",
+  ARS: "es-AR",
+  CLP: "es-CL",
+  PEN: "es-PE",
+  BRL: "pt-BR",
+  GBP: "en-GB",
 };
 
 // Formatear cantidad con símbolo de moneda
@@ -35,7 +47,7 @@ export const formatCurrency = (amount: number, currencyCode: string): string => 
   if (!currency) return `$${amount.toFixed(2)}`;
 
   const lang = getCurrentLanguage();
-  const locale = LANGUAGE_TO_LOCALE[lang] || "es";
+  const locale = CURRENCY_LOCALE[currencyCode] || LANGUAGE_TO_LOCALE[lang] || "es";
 
   const formatted = new Intl.NumberFormat(locale, {
     minimumFractionDigits: currency.noDecimals ? 0 : 2,

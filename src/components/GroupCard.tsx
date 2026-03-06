@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, parseISO } from "date-fns";
 import { enUS, es, fr } from "date-fns/locale";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, FontSize, GROUP_ICONS, Radius, Spacing } from "../constants";
+import { FontSize, GROUP_ICONS, Radius, Spacing } from "../constants";
 import { formatCurrency } from "../lib/currency";
+import { useColors } from "../lib/useColors";
 import { impactAsync } from "../lib/haptics";
 import { useTranslation } from "../lib/i18n";
 import { useSettingsStore } from "../store/settingsStore";
@@ -17,7 +18,9 @@ interface GroupCardProps {
   onPress: () => void;
 }
 
-export function GroupCard({ group, onPress }: GroupCardProps) {
+export const GroupCard = React.memo(function GroupCard({ group, onPress }: GroupCardProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
   const { settings } = useSettingsStore();
   const { t } = useTranslation();
 
@@ -50,10 +53,10 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
 
   const progressColor =
     group.progress_percent >= 70
-      ? Colors.green
+      ? C.green
       : group.progress_percent >= 40
-        ? Colors.accent
-        : Colors.yellow;
+        ? C.accent
+        : C.yellow;
 
   // Format currency based on user settings
   const userCurrency = settings?.currency || "USD";
@@ -69,7 +72,7 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.85}>
-      <LinearGradient colors={["#1c2338", "#141929"]} style={styles.card}>
+      <LinearGradient colors={[C.surface2, C.surface] as any} style={styles.card}>
         <View style={styles.iconContainer}>
           <Ionicons
             name={groupIcon.name as any}
@@ -83,7 +86,7 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
 
         <View style={styles.meta}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Ionicons name="people" size={12} color={Colors.text2} />
+            <Ionicons name="people" size={12} color={C.text2} />
             <Text style={styles.metaText}>{memberCount}</Text>
           </View>
           <Text style={styles.metaDot}>·</Text>
@@ -107,7 +110,7 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
           <Text
             style={[
               styles.daysLeft,
-              group.days_remaining < 30 && { color: Colors.yellow },
+              group.days_remaining < 30 && { color: C.yellow },
             ]}
           >
             {getDaysText(group.days_remaining)}
@@ -116,15 +119,15 @@ export function GroupCard({ group, onPress }: GroupCardProps) {
       </LinearGradient>
     </TouchableOpacity>
   );
-}
+});
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   card: {
     width: 200,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   iconContainer: {
     marginBottom: Spacing.sm,
@@ -133,7 +136,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: FontSize.lg,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
     marginBottom: 4,
   },
   meta: {
@@ -144,10 +147,10 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
   },
   metaDot: {
-    color: Colors.text3,
+    color: C.text3,
     fontSize: FontSize.xs,
   },
   percent: {
@@ -162,11 +165,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 10,
-    color: Colors.text2,
+    color: C.text2,
   },
   daysLeft: {
     fontSize: 10,
-    color: Colors.text3,
+    color: C.text3,
     fontWeight: "700",
   },
 });

@@ -207,7 +207,7 @@ export function initAuthListener(): () => void {
         };
 
         if (insertError) {
-          // Could not create profile, using fallback
+          console.warn("Could not create profile, using fallback:", insertError.message);
         }
 
         useAuthStore.setState({

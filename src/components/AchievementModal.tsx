@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   StyleSheet,
@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { ACHIEVEMENTS, Colors, Radius, Spacing } from "../constants";
+import { ACHIEVEMENTS, Radius, Spacing } from "../constants";
 import { notificationAsync } from "../lib/haptics";
 import { getAchievementText, t } from "../lib/i18n";
+import { useColors } from "../lib/useColors";
 import { useSettingsStore } from "../store/settingsStore";
 import { AchievementType } from "../types";
 
@@ -23,6 +24,8 @@ export function AchievementModal({
   achievementType,
   onDismiss,
 }: AchievementModalProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -112,7 +115,7 @@ export function AchievementModal({
 
           <TouchableOpacity onPress={dismiss} style={styles.btn}>
             <LinearGradient
-              colors={Colors.gradientPrimary}
+              colors={C.gradientPrimary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.btnGradient}
@@ -126,7 +129,7 @@ export function AchievementModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   overlay: {
     position: "absolute",
     inset: 0,
@@ -164,7 +167,7 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.accent2,
+    color: C.accent2,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: Spacing.sm,
@@ -172,13 +175,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     textAlign: "center",
     marginBottom: Spacing.sm,
   },
   description: {
     fontSize: 14,
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
     lineHeight: 20,
     marginBottom: Spacing.xl,

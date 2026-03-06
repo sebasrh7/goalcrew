@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,10 +11,88 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { FontSize, Radius, Spacing } from "../constants";
 import { impactAsync } from "../lib/haptics";
+import { useColors } from "../lib/useColors";
 import { Language, t as _t } from "../lib/i18n";
 import { MemberStatus } from "../types";
+
+// ─── Styles Factory ──────────────────────────────────────────────────────────
+
+const createStyles = (C: any) =>
+  StyleSheet.create({
+    btnBase: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+    },
+    btnText: {
+      color: "#fff",
+      fontWeight: "700",
+    },
+    card: {
+      backgroundColor: C.surface,
+      borderRadius: Radius.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: C.surface3,
+    },
+    avatarCenter: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: Radius.full,
+    },
+    pillText: {
+      fontSize: FontSize.xs,
+      fontWeight: "700",
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: Spacing.xl,
+      marginBottom: Spacing.md,
+    },
+    sectionTitle: {
+      fontSize: FontSize.lg,
+      fontWeight: "800",
+      color: C.text,
+    },
+    sectionAction: {
+      fontSize: FontSize.base,
+      color: C.accent2,
+      fontWeight: "700",
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingVertical: Spacing.xxxl,
+      paddingHorizontal: Spacing.xxl,
+    },
+    emptyIcon: {
+      marginBottom: Spacing.lg,
+    },
+    emptyTitle: {
+      fontSize: FontSize.xl,
+      fontWeight: "900",
+      color: C.text,
+      marginBottom: Spacing.sm,
+      textAlign: "center",
+    },
+    emptyDesc: {
+      fontSize: FontSize.base,
+      color: C.text2,
+      textAlign: "center",
+      lineHeight: 22,
+    },
+  });
 
 // ─── Button ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +117,9 @@ export function Button({
   icon,
   style,
 }: ButtonProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   const handlePress = () => {
     impactAsync("Light");
     onPress();
@@ -64,7 +145,7 @@ export function Button({
         accessibilityState={{ disabled: disabled || isLoading }}
       >
         <LinearGradient
-          colors={Colors.gradientPrimary}
+          colors={C.gradientPrimary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.btnBase, sizeStyle]}
@@ -93,14 +174,14 @@ export function Button({
     { bg: string; textColor: string; border?: string }
   > = {
     secondary: {
-      bg: Colors.surface2,
-      textColor: Colors.text,
-      border: Colors.surface3,
+      bg: C.surface2,
+      textColor: C.text,
+      border: C.surface3,
     },
-    ghost: { bg: "transparent", textColor: Colors.accent2 },
+    ghost: { bg: "transparent", textColor: C.accent2 },
     danger: {
       bg: "rgba(248,113,113,0.12)",
-      textColor: Colors.red,
+      textColor: C.red,
       border: "rgba(248,113,113,0.3)",
     },
   };
@@ -159,6 +240,9 @@ interface CardProps {
 }
 
 export function Card({ children, style, gradient }: CardProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   if (gradient) {
     return (
       <LinearGradient
@@ -189,6 +273,9 @@ export function Avatar({
   gradient,
   style,
 }: AvatarProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -197,6 +284,20 @@ export function Avatar({
     .toUpperCase();
 
   const fontSize = size * 0.35;
+
+  const getAvatarGradient = (n: string): [string, string] => {
+    const gradients: [string, string][] = [
+      [C.accent, C.accent2],
+      ["#22d3a0", "#059669"],
+      ["#f59e0b", "#d97706"],
+      ["#a78bfa", "#7c3aed"],
+      ["#f87171", "#dc2626"],
+      ["#60a5fa", "#2563eb"],
+    ];
+    const index = n.charCodeAt(0) % gradients.length;
+    return gradients[index];
+  };
+
   const colors = [...(gradient ?? getAvatarGradient(name))] as [
     string,
     string,
@@ -241,19 +342,6 @@ export function Avatar({
   );
 }
 
-function getAvatarGradient(name: string): [string, string] {
-  const gradients: [string, string][] = [
-    [Colors.accent, Colors.accent2],
-    ["#22d3a0", "#059669"],
-    ["#f59e0b", "#d97706"],
-    ["#a78bfa", "#7c3aed"],
-    ["#f87171", "#dc2626"],
-    ["#60a5fa", "#2563eb"],
-  ];
-  const index = name.charCodeAt(0) % gradients.length;
-  return gradients[index];
-}
-
 // ─── ProgressBar ──────────────────────────────────────────────────────────────
 
 interface ProgressBarProps {
@@ -270,23 +358,25 @@ export function ProgressBar({
   color,
   style,
 }: ProgressBarProps) {
+  const C = useColors();
+
   const clampedProgress = Math.min(100, Math.max(0, progress));
   const fillColor =
     color ??
     (clampedProgress >= 90
-      ? Colors.green
+      ? C.green
       : clampedProgress >= 60
-        ? Colors.accent
+        ? C.accent
         : clampedProgress >= 30
-          ? Colors.yellow
-          : Colors.red);
+          ? C.yellow
+          : C.red);
 
   return (
     <View
       style={[
         {
           height,
-          backgroundColor: Colors.surface3,
+          backgroundColor: C.surface3,
           borderRadius: height / 2,
           overflow: "hidden",
         },
@@ -312,32 +402,36 @@ export function ProgressBar({
 interface StatusPillProps {
   status: MemberStatus;
   style?: ViewStyle;
+  lang?: Language;
 }
 
 export function StatusPill({
   status,
   style,
   lang,
-}: StatusPillProps & { lang?: Language }) {
+}: StatusPillProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
   const l: Language = lang || "es";
+
   const config = {
     on_track: {
       icon: "checkmark-circle",
       label: _t("statusOnTrack", l),
       bg: "rgba(34,211,160,.15)",
-      color: Colors.green,
+      color: C.green,
     },
     at_risk: {
       icon: "warning",
       label: _t("statusAtRisk", l),
       bg: "rgba(251,191,36,.15)",
-      color: Colors.yellow,
+      color: C.yellow,
     },
     behind: {
       icon: "close-circle",
       label: _t("statusBehind", l),
       bg: "rgba(248,113,113,.15)",
-      color: Colors.red,
+      color: C.red,
     },
   }[status];
 
@@ -366,6 +460,9 @@ export function SectionHeader({
   onAction,
   style,
 }: SectionHeaderProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   return (
     <View style={[styles.sectionHeader, style]}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -393,12 +490,15 @@ export function EmptyState({
   description,
   action,
 }: EmptyStateProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   return (
     <View style={styles.emptyState}>
       <Ionicons
         name={icon as any}
         size={48}
-        color={Colors.text3}
+        color={C.text3}
         style={styles.emptyIcon}
       />
       <Text style={styles.emptyTitle}>{title}</Text>
@@ -413,82 +513,6 @@ export function EmptyState({
     </View>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  btnBase: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-  },
-  btnText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.surface3,
-  },
-  avatarCenter: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
-  },
-  pillText: {
-    fontSize: FontSize.xs,
-    fontWeight: "700",
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: "800",
-    color: Colors.text,
-  },
-  sectionAction: {
-    fontSize: FontSize.base,
-    color: Colors.accent2,
-    fontWeight: "700",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: Spacing.xxxl,
-    paddingHorizontal: Spacing.xxl,
-  },
-  emptyIcon: {
-    marginBottom: Spacing.lg,
-  },
-  emptyTitle: {
-    fontSize: FontSize.xl,
-    fontWeight: "900",
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-    textAlign: "center",
-  },
-  emptyDesc: {
-    fontSize: FontSize.base,
-    color: Colors.text2,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-});
 
 // ─── AchievementIcon Export ──────────────────────────────────────────────────
 export { AchievementIcon } from "./AchievementIcon";

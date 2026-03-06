@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useMemo } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -9,7 +9,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { FontSize, Radius, Spacing } from "../constants";
+import { useColors } from "../lib/useColors";
 
 // ─── AlertModal ─────────────────────────────────────────────────────────────
 // Reemplaza a Alert.alert para un UX consistente con la app.
@@ -44,6 +45,9 @@ export function AlertModal({
   icon,
   iconColor,
 }: AlertModalProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   const resolvedButtons = buttons?.length
     ? buttons
     : [{ text: "OK", style: "default" as const, onPress: onDismiss }];
@@ -65,7 +69,7 @@ export function AlertModal({
               <Ionicons
                 name={icon}
                 size={32}
-                color={iconColor ?? Colors.accent}
+                color={iconColor ?? C.accent}
               />
             </View>
           )}
@@ -144,6 +148,9 @@ export function SelectModal({
   onSelect,
   onClose,
 }: SelectModalProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
+
   return (
     <Modal
       visible={visible}
@@ -156,7 +163,7 @@ export function SelectModal({
           <View style={styles.selectHeader}>
             <Text style={styles.title}>{title}</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={C.text} />
             </TouchableOpacity>
           </View>
 
@@ -191,7 +198,7 @@ export function SelectModal({
                     <Ionicons
                       name="checkmark-circle"
                       size={22}
-                      color={Colors.accent}
+                      color={C.accent}
                     />
                   )}
                 </TouchableOpacity>
@@ -206,109 +213,110 @@ export function SelectModal({
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-  },
-  content: {
-    width: "100%",
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.surface3,
-  },
-  iconContainer: {
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  title: {
-    fontSize: FontSize.xl,
-    fontWeight: "800",
-    color: Colors.text,
-    textAlign: "center",
-    marginBottom: Spacing.sm,
-  },
-  message: {
-    fontSize: FontSize.sm,
-    color: Colors.text2,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: Spacing.xl,
-  },
-  buttonRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginTop: Spacing.md,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-  },
-  cancelButton: {
-    backgroundColor: Colors.surface3,
-  },
-  cancelText: {
-    fontSize: FontSize.base,
-    fontWeight: "600",
-    color: Colors.text2,
-  },
-  actionButton: {
-    backgroundColor: Colors.accent,
-  },
-  destructiveButton: {
-    backgroundColor: Colors.red,
-  },
-  actionText: {
-    fontSize: FontSize.base,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  destructiveText: {
-    color: "#fff",
-  },
-  // Select modal
-  selectHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  optionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: Radius.lg,
-    marginBottom: Spacing.xs,
-    backgroundColor: Colors.bg,
-  },
-  optionItemSelected: {
-    backgroundColor: Colors.accent + "18",
-    borderWidth: 1,
-    borderColor: Colors.accent + "40",
-  },
-  optionLabel: {
-    fontSize: FontSize.base,
-    fontWeight: "500",
-    color: Colors.text,
-  },
-  optionLabelSelected: {
-    color: Colors.accent,
-    fontWeight: "700",
-  },
-  optionSublabel: {
-    fontSize: FontSize.xs,
-    color: Colors.text3,
-    marginTop: 2,
-  },
-});
+const createStyles = (C: any) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.6)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: Spacing.xl,
+    },
+    content: {
+      width: "100%",
+      backgroundColor: C.surface,
+      borderRadius: Radius.xl,
+      paddingVertical: Spacing.xl,
+      paddingHorizontal: Spacing.xl,
+      borderWidth: 1,
+      borderColor: C.surface3,
+    },
+    iconContainer: {
+      alignItems: "center",
+      marginBottom: Spacing.md,
+    },
+    title: {
+      fontSize: FontSize.xl,
+      fontWeight: "800",
+      color: C.text,
+      textAlign: "center",
+      marginBottom: Spacing.sm,
+    },
+    message: {
+      fontSize: FontSize.sm,
+      color: C.text2,
+      textAlign: "center",
+      lineHeight: 20,
+      marginBottom: Spacing.xl,
+    },
+    buttonRow: {
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginTop: Spacing.md,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: Spacing.md,
+      borderRadius: Radius.lg,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 44,
+    },
+    cancelButton: {
+      backgroundColor: C.surface3,
+    },
+    cancelText: {
+      fontSize: FontSize.base,
+      fontWeight: "600",
+      color: C.text2,
+    },
+    actionButton: {
+      backgroundColor: C.accent,
+    },
+    destructiveButton: {
+      backgroundColor: C.red,
+    },
+    actionText: {
+      fontSize: FontSize.base,
+      fontWeight: "700",
+      color: "#fff",
+    },
+    destructiveText: {
+      color: "#fff",
+    },
+    // Select modal
+    selectHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: Spacing.xl,
+    },
+    optionItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.lg,
+      borderRadius: Radius.lg,
+      marginBottom: Spacing.xs,
+      backgroundColor: C.bg,
+    },
+    optionItemSelected: {
+      backgroundColor: C.accent + "18",
+      borderWidth: 1,
+      borderColor: C.accent + "40",
+    },
+    optionLabel: {
+      fontSize: FontSize.base,
+      fontWeight: "500",
+      color: C.text,
+    },
+    optionLabelSelected: {
+      color: C.accent,
+      fontWeight: "700",
+    },
+    optionSublabel: {
+      fontSize: FontSize.xs,
+      color: C.text3,
+      marginTop: 2,
+    },
+  });

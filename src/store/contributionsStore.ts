@@ -15,17 +15,20 @@ import { useSettingsStore } from "./settingsStore";
 
 interface ContributionsStoreState extends ContributionsState {
   lastUnlockedAchievement: string | null;
+  hasMore: boolean;
   clearLastAchievement: () => void;
+  loadMoreContributions: (groupId: string) => Promise<void>;
 }
 
 export const useContributionsStore = create<ContributionsStoreState>((set, get) => ({
   contributions: [],
   isLoading: false,
   lastUnlockedAchievement: null,
+  hasMore: true,
 
   clearLastAchievement: () => set({ lastUnlockedAchievement: null }),
 
-  addContribution: async (groupId: string, amount: number, note?: string) => {
+  addContribution: async (groupId: string, amount: number, note?: string, proofUrl?: string) => {
     set({ isLoading: true });
     try {
       const {
@@ -35,7 +38,7 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
 
       // The RPC update_member_after_contribution handles:
       // current_amount, streak_days, total_points, status — all server-side
-      const contribution = await apiAdd(user.id, groupId, amount, note);
+      const contribution = await apiAdd(user.id, groupId, amount, note, proofUrl);
 
       // Update local state optimistically
       set((state) => ({
@@ -53,11 +56,14 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
         .single();
 
       // Check achievements based on server-calculated values
+      // current_amount already includes this contribution (server-side RPC),
+      // so pre-contribution = current_amount - amount
+      const preContributionAmount = Math.max(0, (member?.current_amount ?? amount) - amount);
       await checkAndUnlockAchievements(
         user.id,
         groupId,
         amount,
-        (member?.current_amount ?? amount) - amount, // pre-contribution amount
+        preContributionAmount,
         member?.streak_days ?? 0,
         member?.individual_goal ?? 0,
         set,
@@ -74,7 +80,22 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
     set({ isLoading: true });
     try {
       const data = await fetchGroupContributions(groupId);
-      set({ contributions: data });
+      set({ contributions: data, hasMore: data.length >= 50 });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  loadMoreContributions: async (groupId: string) => {
+    const { contributions, hasMore, isLoading } = get();
+    if (!hasMore || isLoading) return;
+    set({ isLoading: true });
+    try {
+      const data = await fetchGroupContributions(groupId, 50, contributions.length);
+      set({
+        contributions: [...contributions, ...data],
+        hasMore: data.length >= 50,
+      });
     } finally {
       set({ isLoading: false });
     }
@@ -230,8 +251,14 @@ async function checkAndUnlockAchievements(
           notifyAchievement(achievementType, settings.language).catch(() => {});
         }
       }
-    } catch {
-      // Already unlocked, ignore
+    } catch (err: unknown) {
+      // Only ignore duplicate key errors (already unlocked)
+      const code = err && typeof err === "object" && "code" in err
+        ? (err as { code: string }).code
+        : null;
+      if (code !== "23505") {
+        console.warn(`Failed to unlock achievement ${achievementType}:`, err);
+      }
     }
   }
 }

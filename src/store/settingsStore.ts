@@ -1,7 +1,24 @@
+import { Platform } from "react-native";
 import { create } from "zustand";
 import { changeLanguage } from "../lib/i18n";
 import { detectDeviceLocale } from "../lib/locale";
 import { supabase } from "../lib/supabase";
+
+/** Read cached theme from localStorage (web only) to avoid flash on reload */
+function getCachedTheme(): "light" | "dark" | "auto" {
+  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
+    const cached = localStorage.getItem("goalcrew_theme");
+    if (cached === "light" || cached === "dark" || cached === "auto") return cached;
+  }
+  return "dark";
+}
+
+/** Cache theme to localStorage (web only) */
+function cacheTheme(theme: string) {
+  if (Platform.OS === "web" && typeof localStorage !== "undefined") {
+    localStorage.setItem("goalcrew_theme", theme);
+  }
+}
 
 export interface UserSettings {
   id?: string;
@@ -40,7 +57,7 @@ interface SettingsStore {
 const defaultSettings: UserSettings = {
   language: "es",
   currency: "USD",
-  theme: "light",
+  theme: getCachedTheme(),
   push_notifications: true,
   contribution_reminders: true,
   achievement_notifications: true,
@@ -108,6 +125,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       // Sync global language with loaded settings
       changeLanguage(data.language || "es");
+      cacheTheme(data.theme || "dark");
 
       set({ settings: data, isLoading: false });
     } catch (error: unknown) {
@@ -122,6 +140,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const updatedSettings = { ...currentSettings, ...newSettings };
 
     // Optimistic update — UI refleja el cambio de inmediato
+    if (newSettings.theme) cacheTheme(newSettings.theme);
     set({ settings: updatedSettings });
 
     // Sincronizar idioma global de inmediato

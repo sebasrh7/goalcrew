@@ -21,7 +21,6 @@ import { AlertModal, SelectModal } from "../../src/components/AlertModal";
 import { Avatar, Button, Card, SectionHeader } from "../../src/components/UI";
 import {
   ACHIEVEMENTS,
-  Colors,
   FontSize,
   GROUP_ICONS,
   Radius,
@@ -31,12 +30,14 @@ import {
 import { formatCurrency } from "../../src/lib/currency";
 import { getAchievementText, t } from "../../src/lib/i18n";
 import { fetchAllUserAchievements, supabase } from "../../src/lib/supabase";
+import { useColors } from "../../src/lib/useColors";
 import { useAuthStore } from "../../src/store/authStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
 
 export default function ProfileScreen() {
+  const C = useColors();
   const router = useRouter();
   const { user, signOut, updateProfile } = useAuthStore();
   const { groups, fetchGroups } = useGroupsStore();
@@ -85,6 +86,7 @@ export default function ProfileScreen() {
     setAlertModal((prev) => ({ ...prev, visible: false }));
 
   const lang = settings.language || "es";
+  const styles = useMemo(() => createStyles(C), [C]);
 
   // Compute stats
   const totalSaved = useMemo(
@@ -224,7 +226,7 @@ export default function ProfileScreen() {
   const handleSignOut = () => {
     showAlert(t("signOut", lang), t("signOutConfirm", lang), {
       icon: "log-out-outline",
-      iconColor: Colors.red,
+      iconColor: C.red,
       buttons: [
         { text: t("cancel", lang), onPress: dismissAlert, style: "cancel" },
         {
@@ -254,7 +256,7 @@ export default function ProfileScreen() {
         if (status !== "granted") {
           showAlert(t("error", lang), t("cameraPermission", lang), {
             icon: "alert-circle",
-            iconColor: Colors.red,
+            iconColor: C.red,
           });
           return;
         }
@@ -264,7 +266,7 @@ export default function ProfileScreen() {
         if (status !== "granted") {
           showAlert(t("error", lang), t("galleryPermission", lang), {
             icon: "alert-circle",
-            iconColor: Colors.red,
+            iconColor: C.red,
           });
           return;
         }
@@ -304,7 +306,7 @@ export default function ProfileScreen() {
       if (uploadError) {
         showAlert(t("error", lang), t("uploadError", lang), {
           icon: "cloud-upload-outline",
-          iconColor: Colors.red,
+          iconColor: C.red,
         });
         setIsUploadingAvatar(false);
         return;
@@ -324,7 +326,7 @@ export default function ProfileScreen() {
     } catch (error: unknown) {
       showAlert(t("error", lang), t("uploadError", lang), {
         icon: "cloud-upload-outline",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
       setIsUploadingAvatar(false);
     }
@@ -343,6 +345,13 @@ export default function ProfileScreen() {
     }
   }, [fetchGroups, loadAchievements]);
 
+  const StatCard = ({ label, value, color }: { label: string; value: string; color: string }) => (
+    <View style={styles.statCard}>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -352,14 +361,14 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.accent2}
+            tintColor={C.accent2}
           />
         }
       >
         <View style={styles.webContent}>
           {/* Header gradient */}
           <LinearGradient
-            colors={["#1a1555", Colors.bg]}
+            colors={C.gradientHero as any}
             style={styles.headerGradient}
           >
             <View style={styles.profileHero}>
@@ -374,12 +383,12 @@ export default function ProfileScreen() {
                       width: 88,
                       height: 88,
                       borderRadius: 44,
-                      backgroundColor: Colors.surface2,
+                      backgroundColor: C.surface2,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <ActivityIndicator size="small" color={Colors.accent} />
+                    <ActivityIndicator size="small" color={C.accent} />
                   </View>
                 ) : (
                   <Avatar
@@ -389,7 +398,7 @@ export default function ProfileScreen() {
                   />
                 )}
                 <View style={styles.editAvatarBtn}>
-                  <Ionicons name="camera" size={12} color={Colors.text2} />
+                  <Ionicons name="camera" size={12} color={C.text2} />
                 </View>
               </TouchableOpacity>
               <Text style={styles.userName}>{user.name}</Text>
@@ -400,7 +409,7 @@ export default function ProfileScreen() {
                     <Ionicons
                       name="trophy"
                       size={14}
-                      color={Colors.accent2}
+                      color={C.accent2}
                       style={{ marginRight: 4 }}
                     />
                     <Text style={styles.levelBadgeText}>
@@ -414,7 +423,7 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="flame"
                         size={14}
-                        color={Colors.yellow}
+                        color={C.yellow}
                         style={{ marginRight: 4 }}
                       />
                       <Text style={styles.streakBadgeText}>
@@ -432,17 +441,17 @@ export default function ProfileScreen() {
             <StatCard
               label={t("totalSaved", lang)}
               value={formatCurrency(totalSaved, settings.currency)}
-              color={Colors.green}
+              color={C.green}
             />
             <StatCard
               label={t("points", lang)}
               value={totalPoints.toLocaleString()}
-              color={Colors.accent2}
+              color={C.accent2}
             />
             <StatCard
               label={t("medals", lang)}
               value={String(earnedAchievements.size)}
-              color={Colors.yellow}
+              color={C.yellow}
             />
           </View>
 
@@ -456,7 +465,7 @@ export default function ProfileScreen() {
               <View style={styles.streakRow}>
                 <View style={styles.streakTextBlock}>
                   <Text style={styles.streakNumber}>
-                    {maxStreak} {t("days", lang)}
+                    {maxStreak} {t("periods", lang)}
                   </Text>
                   <Text style={styles.streakSub}>
                     {maxStreak >= 7
@@ -474,7 +483,7 @@ export default function ProfileScreen() {
                       key={i}
                       name="flame"
                       size={12}
-                      color={Colors.yellow}
+                      color={C.yellow}
                     />
                   ))}
                 </View>
@@ -495,7 +504,7 @@ export default function ProfileScreen() {
                     <Text
                       style={[
                         styles.streakDotText,
-                        d.done ? { color: "#000" } : { color: Colors.text3 },
+                        d.done ? { color: "#000" } : { color: C.text3 },
                       ]}
                     >
                       {d.label}
@@ -541,7 +550,7 @@ export default function ProfileScreen() {
                       <Ionicons
                         name="lock-closed"
                         size={12}
-                        color={Colors.text3}
+                        color={C.text3}
                         style={styles.medalLockIcon}
                       />
                     ) : (
@@ -590,14 +599,14 @@ export default function ProfileScreen() {
                     <Text
                       style={{
                         fontWeight: "800",
-                        color: Colors.text,
+                        color: C.text,
                         marginBottom: 4,
                       }}
                     >
                       {group.name}
                     </Text>
                     <Text
-                      style={{ fontSize: FontSize.xs, color: Colors.text2 }}
+                      style={{ fontSize: FontSize.xs, color: C.text2 }}
                     >
                       {formatCurrency(
                         myMember?.current_amount || 0,
@@ -676,25 +685,8 @@ export default function ProfileScreen() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+const createStyles = (C: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
   scrollContent: { paddingBottom: Spacing.xl },
   webContent: {
     width: "100%",
@@ -715,21 +707,21 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderWidth: 2,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     alignItems: "center",
     justifyContent: "center",
   },
   userName: {
     fontSize: FontSize.xxl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     marginBottom: 4,
   },
   userEmail: {
     fontSize: FontSize.sm,
-    color: Colors.text2,
+    color: C.text2,
     marginBottom: Spacing.md,
   },
   badges: { flexDirection: "row", gap: Spacing.sm },
@@ -748,7 +740,7 @@ const styles = StyleSheet.create({
   levelBadgeText: {
     fontSize: FontSize.xs,
     fontWeight: "800",
-    color: Colors.accent2,
+    color: C.accent2,
   },
   streakBadge: {
     backgroundColor: "rgba(251,191,36,0.15)",
@@ -765,7 +757,7 @@ const styles = StyleSheet.create({
   streakBadgeText: {
     fontSize: FontSize.xs,
     fontWeight: "800",
-    color: Colors.yellow,
+    color: C.yellow,
   },
   statsRow: {
     flexDirection: "row",
@@ -775,17 +767,17 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     alignItems: "center",
   },
   statValue: { fontSize: FontSize.xl, fontWeight: "900", marginBottom: 2 },
   statLabel: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
   },
   streakRow: {
@@ -801,12 +793,12 @@ const styles = StyleSheet.create({
   streakNumber: {
     fontSize: FontSize.xxl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     textAlign: "center",
   },
   streakSub: {
     fontSize: FontSize.sm,
-    color: Colors.text2,
+    color: C.text2,
     marginTop: 2,
     textAlign: "center",
   },
@@ -823,9 +815,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  streakDotDone: { backgroundColor: Colors.green },
-  streakDotToday: { backgroundColor: Colors.accent },
-  streakDotEmpty: { backgroundColor: Colors.surface3 },
+  streakDotDone: { backgroundColor: C.green },
+  streakDotToday: { backgroundColor: C.accent },
+  streakDotEmpty: { backgroundColor: C.surface3 },
   streakDotText: { fontSize: FontSize.xs, fontWeight: "800" },
   achievementsGrid: {
     paddingHorizontal: Spacing.xl,
@@ -836,12 +828,12 @@ const styles = StyleSheet.create({
   },
   medalCard: {
     width: Platform.OS === "web" ? "31.5%" : "30%",
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     padding: Spacing.md,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   medalCardEarned: {
     borderColor: "rgba(108,99,255,0.4)",
@@ -851,7 +843,7 @@ const styles = StyleSheet.create({
   medalLocked: { opacity: 0.3 },
   medalName: {
     fontSize: 10,
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
     lineHeight: 14,
     minHeight: 28,
@@ -868,7 +860,7 @@ const styles = StyleSheet.create({
   version: {
     textAlign: "center",
     fontSize: FontSize.xs,
-    color: Colors.text3,
+    color: C.text3,
     marginTop: Spacing.sm,
   },
   groupIconContainer: {

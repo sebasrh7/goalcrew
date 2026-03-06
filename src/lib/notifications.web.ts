@@ -74,3 +74,10 @@ export function addNotificationListeners(
 ) {
   return () => {};
 }
+
+export async function scheduleSmartReminders(
+  _groups: unknown[],
+  _userId: string,
+  _lang?: Language,
+): Promise<void> {}
+

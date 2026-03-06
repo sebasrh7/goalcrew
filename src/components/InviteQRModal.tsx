@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import React, { useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
     Modal,
     Platform,
@@ -10,8 +10,9 @@ import {
     View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { Colors, FontSize, Radius, Spacing, getInviteUrl } from "../constants";
+import { FontSize, Radius, Spacing, getInviteUrl } from "../constants";
 import { Language, t } from "../lib/i18n";
+import { useColors } from "../lib/useColors";
 
 interface Props {
   visible: boolean;
@@ -28,11 +29,16 @@ export function InviteQRModal({
   groupName,
   lang,
 }: Props) {
+  const C = useColors();
   const qrRef = useRef<any>(null);
   const inviteUrl = getInviteUrl(inviteCode);
+  const [copied, setCopied] = useState(false);
+  const styles = useMemo(() => createStyles(C), [C]);
 
   const handleCopyCode = async () => {
     await Clipboard.setStringAsync(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -48,7 +54,7 @@ export function InviteQRModal({
           <View style={styles.header}>
             <Text style={styles.title}>{t("inviteMembers", lang)}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={Colors.text2} />
+              <Ionicons name="close" size={22} color={C.text2} />
             </TouchableOpacity>
           </View>
 
@@ -85,7 +91,11 @@ export function InviteQRModal({
               activeOpacity={0.7}
             >
               <Text style={styles.codeText}>{inviteCode}</Text>
-              <Ionicons name="copy-outline" size={14} color={Colors.accent2} />
+              <Ionicons
+                name={copied ? "checkmark" : "copy-outline"}
+                size={14}
+                color={copied ? C.green : C.accent2}
+              />
             </TouchableOpacity>
           </View>
 
@@ -105,7 +115,7 @@ export function InviteQRModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -114,13 +124,13 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xl,
     width: "100%",
     maxWidth: 360,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   header: {
     flexDirection: "row",
@@ -131,14 +141,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.lg,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
   },
   closeBtn: {
     padding: 4,
   },
   groupName: {
     fontSize: FontSize.sm,
-    color: Colors.text2,
+    color: C.text2,
     marginBottom: Spacing.lg,
   },
   qrContainer: {
@@ -161,43 +171,43 @@ const styles = StyleSheet.create({
   },
   codeLabel: {
     fontSize: FontSize.sm,
-    color: Colors.text2,
+    color: C.text2,
     fontWeight: "600",
   },
   codeBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   codeText: {
     fontSize: FontSize.md,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     letterSpacing: 2,
   },
   hint: {
     fontSize: FontSize.xs,
-    color: Colors.text3,
+    color: C.text3,
     textAlign: "center",
     marginBottom: Spacing.lg,
   },
   doneBtn: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   doneBtnText: {
     fontSize: FontSize.base,
     fontWeight: "700",
-    color: Colors.text,
+    color: C.text,
   },
 });

@@ -75,6 +75,11 @@ export const translations: Translations = {
     en: "Loading...",
     fr: "Chargement...",
   },
+  loadMore: {
+    es: "Cargar más",
+    en: "Load more",
+    fr: "Charger plus",
+  },
   error: {
     es: "Error",
     en: "Error",
@@ -1698,6 +1703,265 @@ export const translations: Translations = {
     es: "Hoy",
     en: "Today",
     fr: "Aujourd'hui",
+  },
+
+  // ─── Group Status ───────────────────────────────────────────────────────────
+  groupCompleted: {
+    es: "Grupo completado",
+    en: "Group completed",
+    fr: "Groupe terminé",
+  },
+  groupArchived: {
+    es: "Grupo archivado",
+    en: "Group archived",
+    fr: "Groupe archivé",
+  },
+  completeGroup: {
+    es: "Completar grupo",
+    en: "Complete group",
+    fr: "Terminer le groupe",
+  },
+  archiveGroup: {
+    es: "Archivar grupo",
+    en: "Archive group",
+    fr: "Archiver le groupe",
+  },
+  reactivateGroup: {
+    es: "Reactivar grupo",
+    en: "Reactivate group",
+    fr: "Réactiver le groupe",
+  },
+  completeGroupConfirm: {
+    es: "¿Marcar este grupo como completado? Los miembros no podrán agregar más aportes.",
+    en: "Mark this group as completed? Members won't be able to add more contributions.",
+    fr: "Marquer ce groupe comme terminé ? Les membres ne pourront plus ajouter de contributions.",
+  },
+  archiveGroupConfirm: {
+    es: "¿Archivar este grupo? Se moverá a la sección de archivados.",
+    en: "Archive this group? It will be moved to the archived section.",
+    fr: "Archiver ce groupe ? Il sera déplacé dans la section archivée.",
+  },
+  reactivateGroupConfirm: {
+    es: "¿Reactivar este grupo?",
+    en: "Reactivate this group?",
+    fr: "Réactiver ce groupe ?",
+  },
+  goalReached: {
+    es: "¡Meta alcanzada!",
+    en: "Goal reached!",
+    fr: "Objectif atteint !",
+  },
+  congratulations: {
+    es: "¡Felicidades! Tu grupo alcanzó la meta.",
+    en: "Congratulations! Your group reached the goal.",
+    fr: "Félicitations ! Votre groupe a atteint l'objectif.",
+  },
+  active: {
+    es: "Activos",
+    en: "Active",
+    fr: "Actifs",
+  },
+  archived: {
+    es: "Archivados",
+    en: "Archived",
+    fr: "Archivés",
+  },
+  completed: {
+    es: "Completado",
+    en: "Completed",
+    fr: "Terminé",
+  },
+  noArchivedGroups: {
+    es: "No tienes grupos archivados",
+    en: "No archived groups",
+    fr: "Aucun groupe archivé",
+  },
+  archivedGroups: {
+    es: "Grupos archivados",
+    en: "Archived groups",
+    fr: "Groupes archivés",
+  },
+
+  // ─── Remove Member ──────────────────────────────────────────────────────────
+  removeMember: {
+    es: "Remover miembro",
+    en: "Remove member",
+    fr: "Retirer le membre",
+  },
+  removeMemberConfirm: {
+    es: "¿Remover a {name} del grupo? Se eliminarán sus aportes.",
+    en: "Remove {name} from the group? Their contributions will be deleted.",
+    fr: "Retirer {name} du groupe ? Ses contributions seront supprimées.",
+  },
+
+  // ─── Proof Photos ──────────────────────────────────────────────────────────
+  addProof: {
+    es: "Adjuntar comprobante",
+    en: "Attach proof",
+    fr: "Joindre un justificatif",
+  },
+  proofAttached: {
+    es: "Comprobante adjunto",
+    en: "Proof attached",
+    fr: "Justificatif joint",
+  },
+  viewProof: {
+    es: "Ver comprobante",
+    en: "View proof",
+    fr: "Voir le justificatif",
+  },
+  removeProof: {
+    es: "Quitar comprobante",
+    en: "Remove proof",
+    fr: "Retirer le justificatif",
+  },
+
+  // ─── Smart Reminders ──────────────────────────────────────────────────────
+  reminderStreakAtRisk: {
+    es: "¡Tu racha se rompe mañana si no aportas!",
+    en: "Your streak breaks tomorrow if you don't contribute!",
+    fr: "Votre série se termine demain si vous ne contribuez pas !",
+  },
+  reminderAmountLeft: {
+    es: "Te faltan {amount} para completar este periodo",
+    en: "You need {amount} more to complete this period",
+    fr: "Il vous manque {amount} pour compléter cette période",
+  },
+  reminderDeadlineClose: {
+    es: "¡Quedan {days} días para el deadline de {group}!",
+    en: "{days} days left until {group}'s deadline!",
+    fr: "Plus que {days} jours avant la date limite de {group} !",
+  },
+
+  // ─── Stats / Charts ──────────────────────────────────────────────────────
+  stats: {
+    es: "Estadísticas",
+    en: "Statistics",
+    fr: "Statistiques",
+  },
+  savingsOverTime: {
+    es: "Ahorro en el tiempo",
+    en: "Savings over time",
+    fr: "Épargne dans le temps",
+  },
+  contributionsByMember: {
+    es: "Aportes por miembro",
+    en: "Contributions by member",
+    fr: "Contributions par membre",
+  },
+  savingVelocity: {
+    es: "Velocidad de ahorro",
+    en: "Saving velocity",
+    fr: "Vitesse d'épargne",
+  },
+  perPeriod: {
+    es: "por periodo",
+    en: "per period",
+    fr: "par période",
+  },
+  avgContribution: {
+    es: "Aporte promedio",
+    en: "Average contribution",
+    fr: "Contribution moyenne",
+  },
+  totalContributions: {
+    es: "Total de aportes",
+    en: "Total contributions",
+    fr: "Total des contributions",
+  },
+  projected: {
+    es: "Proyección",
+    en: "Projected",
+    fr: "Projection",
+  },
+
+  // ─── Group Chat ──────────────────────────────────────────────────────────
+  chat: {
+    es: "Chat",
+    en: "Chat",
+    fr: "Chat",
+  },
+  typeMessage: {
+    es: "Escribe un mensaje...",
+    en: "Type a message...",
+    fr: "Écrivez un message...",
+  },
+  noMessages: {
+    es: "No hay mensajes aún. ¡Inicia la conversación!",
+    en: "No messages yet. Start the conversation!",
+    fr: "Pas encore de messages. Lancez la conversation !",
+  },
+  deleteMessage: {
+    es: "Eliminar mensaje",
+    en: "Delete message",
+    fr: "Supprimer le message",
+  },
+
+  // ─── Search ──────────────────────────────────────────────────────────────
+  searchGroups: {
+    es: "Buscar grupos...",
+    en: "Search groups...",
+    fr: "Rechercher des groupes...",
+  },
+  noResults: {
+    es: "Sin resultados",
+    en: "No results",
+    fr: "Aucun résultat",
+  },
+
+  // ─── Data Export ─────────────────────────────────────────────────────────
+  exportCSV: {
+    es: "Exportar CSV",
+    en: "Export CSV",
+    fr: "Exporter en CSV",
+  },
+
+  // ─── Theme ───────────────────────────────────────────────────────────────
+  theme: {
+    es: "Tema",
+    en: "Theme",
+    fr: "Thème",
+  },
+  lightMode: {
+    es: "Modo claro",
+    en: "Light mode",
+    fr: "Mode clair",
+  },
+  systemTheme: {
+    es: "Automático",
+    en: "System",
+    fr: "Automatique",
+  },
+
+  // ─── Streaks (period-based naming) ──────────────────────────────────────
+  streakPeriods: {
+    es: "periodos consecutivos",
+    en: "consecutive periods",
+    fr: "périodes consécutives",
+  },
+
+  // ─── Offline ─────────────────────────────────────────────────────────────
+  offline: {
+    es: "Sin conexión",
+    en: "Offline",
+    fr: "Hors ligne",
+  },
+  offlineMessage: {
+    es: "Algunas funciones no están disponibles sin conexión",
+    en: "Some features are unavailable offline",
+    fr: "Certaines fonctionnalités ne sont pas disponibles hors ligne",
+  },
+
+  // ─── Misc ────────────────────────────────────────────────────────────────
+  remove: {
+    es: "Remover",
+    en: "Remove",
+    fr: "Retirer",
+  },
+  share: {
+    es: "Compartir",
+    en: "Share",
+    fr: "Partager",
   },
 };
 

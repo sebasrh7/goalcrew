@@ -8,6 +8,7 @@ export type FrequencyType =
   | "custom";
 export type DivisionType = "equal" | "custom";
 export type MemberStatus = "on_track" | "at_risk" | "behind";
+export type GroupStatus = "active" | "completed" | "archived";
 
 export interface User {
   id: string;
@@ -29,6 +30,8 @@ export interface Group {
   invite_code: string;
   created_by: string; // user_id
   created_at: string;
+  status: GroupStatus;
+  completed_at: string | null;
 }
 
 export interface GroupMember {
@@ -53,6 +56,17 @@ export interface Contribution {
   group_id: string;
   amount: number;
   note: string | null;
+  proof_url: string | null;
+  created_at: string;
+  // Joined
+  user?: User;
+}
+
+export interface GroupMessage {
+  id: string;
+  group_id: string;
+  user_id: string;
+  message: string;
   created_at: string;
   // Joined
   user?: User;
@@ -100,8 +114,6 @@ export interface AchievementConfig {
   type: AchievementType;
   icon: string;
   color: string;
-  title: string;
-  description: string;
 }
 
 // ─── Navigation Types ────────────────────────────────────────────────────────
@@ -170,6 +182,10 @@ export interface GroupsState {
       >
     >,
   ) => Promise<void>;
+  completeGroup: (groupId: string) => Promise<void>;
+  archiveGroup: (groupId: string) => Promise<void>;
+  reactivateGroup: (groupId: string) => Promise<void>;
+  removeMember: (groupId: string, userId: string) => Promise<void>;
 }
 
 export interface CreateGroupInput {
@@ -190,6 +206,7 @@ export interface ContributionsState {
     groupId: string,
     amount: number,
     note?: string,
+    proofUrl?: string,
   ) => Promise<void>;
   fetchContributions: (groupId: string) => Promise<void>;
   deleteContribution: (

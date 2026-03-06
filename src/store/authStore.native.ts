@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await GoogleSignin.hasPlayServices();
 
       // Sign in with Google
-      const userInfo = await GoogleSignin.signIn();
+      await GoogleSignin.signIn();
 
       // Get ID token
       const tokens = await GoogleSignin.getTokens();
@@ -51,8 +51,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!session) {
         // Retry once after a short delay
         await new Promise((resolve) => setTimeout(resolve, 500));
-        const { data: retryData } = await supabase.auth.getSession();
-        session = retryData.session;
+        const retryResult = await supabase.auth.getSession();
+        session = retryResult.data?.session ?? null;
         if (!session) {
           throw new Error("Session not found after sign in");
         }
@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
 
         if (insertError) {
-          // Could not create profile, using fallback
+          console.warn("Could not create profile, using fallback:", insertError.message);
         }
 
         set({
@@ -107,11 +107,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
         });
-
-        // Load user settings even with fallback user
-        const { loadSettings } = useSettingsStore.getState();
-        await loadSettings();
       }
+
+      // Load settings once after auth completes (whether profile existed or was created)
+      const { loadSettings } = useSettingsStore.getState();
+      await loadSettings();
     } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
@@ -293,7 +293,7 @@ export function initAuthListener(): () => void {
         };
 
         if (insertError) {
-          // Could not create profile, using fallback
+          console.warn("Could not create profile in listener, using fallback:", insertError.message);
         }
 
         useAuthStore.setState({
@@ -303,7 +303,6 @@ export function initAuthListener(): () => void {
           isLoading: false,
         });
 
-        // Load user settings even with fallback user
         const { loadSettings } = useSettingsStore.getState();
         await loadSettings();
       }

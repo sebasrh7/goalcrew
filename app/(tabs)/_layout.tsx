@@ -3,8 +3,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, Tabs } from "expo-router";
 import { Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../src/constants";
 import { t } from "../../src/lib/i18n";
+import { useColors } from "../../src/lib/useColors";
 import { useAuthStore } from "../../src/store/authStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 
@@ -15,11 +15,12 @@ export default function TabsLayout() {
   const { settings } = useSettingsStore();
   const lang = settings?.language || "es";
   const insets = useSafeAreaInsets();
+  const C = useColors();
 
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
 
-  const tabBarHeight = isWeb ? 64 : 60 + insets.bottom;
-  const tabBarPaddingBottom = isWeb ? 8 : insets.bottom || 8;
+  const tabBarHeight = isWeb ? 72 : 60 + insets.bottom;
+  const tabBarPaddingBottom = isWeb ? 10 : insets.bottom || 8;
 
   return (
     <Tabs
@@ -27,14 +28,15 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle: {
           ...styles.tabBar,
+          borderTopColor: C.surface3,
           height: tabBarHeight,
           paddingBottom: tabBarPaddingBottom,
         },
-        tabBarActiveTintColor: Colors.accent2,
-        tabBarInactiveTintColor: Colors.text3,
+        tabBarActiveTintColor: C.accent2,
+        tabBarInactiveTintColor: C.text3,
         tabBarLabelStyle: styles.tabLabel,
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, styles.tabBarBg]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: C.surface }]} />
         ),
       }}
     >
@@ -46,7 +48,7 @@ export default function TabsLayout() {
             <Ionicons
               name={focused ? "home" : "home-outline"}
               size={24}
-              color={focused ? Colors.accent2 : Colors.text3}
+              color={focused ? C.accent2 : C.text3}
             />
           ),
         }}
@@ -59,7 +61,7 @@ export default function TabsLayout() {
             <View style={[styles.createBtn, focused && styles.createBtnActive]}>
               <LinearGradient
                 colors={
-                  focused ? Colors.gradientPrimary : ["#232c42", "#1c2338"]
+                  focused ? C.gradientPrimary : [C.surface3, C.surface2]
                 }
                 style={styles.createBtnGradient}
               >
@@ -78,7 +80,7 @@ export default function TabsLayout() {
             <Ionicons
               name={focused ? "person" : "person-outline"}
               size={24}
-              color={focused ? Colors.accent2 : Colors.text3}
+              color={focused ? C.accent2 : C.text3}
             />
           ),
         }}
@@ -91,12 +93,8 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: "transparent",
     borderTopWidth: 1,
-    borderTopColor: Colors.surface3,
     paddingTop: 8,
     elevation: 0,
-  },
-  tabBarBg: {
-    backgroundColor: Colors.surface,
   },
   tabLabel: {
     fontSize: 10,
@@ -115,7 +113,7 @@ const styles = StyleSheet.create({
         boxShadow: `0 4px 8px rgba(108, 99, 255, 0.4)`,
       },
       default: {
-        shadowColor: Colors.accent,
+        shadowColor: "#6C63FF",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 8,

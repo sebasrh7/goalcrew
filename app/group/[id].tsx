@@ -4,12 +4,15 @@ import { enUS, es, fr } from "date-fns/locale";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   Share,
@@ -29,11 +32,12 @@ import Svg, {
 import { AchievementModal } from "../../src/components/AchievementModal";
 import { AlertModal } from "../../src/components/AlertModal";
 import { ContributionCalendar } from "../../src/components/ContributionCalendar";
+import { GroupChat } from "../../src/components/GroupChat";
+import { GroupStats } from "../../src/components/GroupStats";
 import { InviteQRModal } from "../../src/components/InviteQRModal";
 import { MemberRow } from "../../src/components/MemberRow";
 import { Button, Card, StatusPill } from "../../src/components/UI";
 import {
-  Colors,
   FontSize,
   GROUP_ICONS,
   Radius,
@@ -41,23 +45,31 @@ import {
   getErrorMessage,
   getInviteUrl,
 } from "../../src/constants";
+import { useColors } from "../../src/lib/useColors";
 import {
   CURRENCIES,
   formatCurrency,
   getQuickAmounts,
 } from "../../src/lib/currency";
+import { generateCSV, shareCSV } from "../../src/lib/export";
 import { notificationAsync } from "../../src/lib/haptics";
 import { getFrequencyPeriodLabel, t } from "../../src/lib/i18n";
-import { subscribeToGroup } from "../../src/lib/supabase";
+import {
+  fetchAllGroupContributions,
+  subscribeToGroup,
+  uploadContributionProof,
+} from "../../src/lib/supabase";
 import { useAuthStore } from "../../src/store/authStore";
 import { useContributionsStore } from "../../src/store/contributionsStore";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
 
-type TabType = "members" | "ranking" | "history" | "calendar";
+type TabType = "members" | "ranking" | "history" | "calendar" | "chat" | "stats";
 
 export default function GroupScreen() {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuthStore();
@@ -70,6 +82,10 @@ export default function GroupScreen() {
     leaveGroup,
     deleteGroup,
     updateGroup,
+    completeGroup,
+    archiveGroup,
+    reactivateGroup,
+    removeMember,
   } = useGroupsStore();
   const {
     addContribution,
@@ -80,6 +96,8 @@ export default function GroupScreen() {
     isLoading: contribLoading,
     lastUnlockedAchievement,
     clearLastAchievement,
+    hasMore,
+    loadMoreContributions,
   } = useContributionsStore();
 
   const { updateMemberGoal } = useGroupsStore();
@@ -92,10 +110,14 @@ export default function GroupScreen() {
   const [editGoalAmount, setEditGoalAmount] = useState("");
   const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
 
+  const [proofImage, setProofImage] = useState<string | null>(null);
+  const submittingRef = useRef(false);
+
   // Clear contribution fields when modal closes
   const openContribModal = useCallback(() => {
     setContribAmount("");
     setContribNote("");
+    setProofImage(null);
     setShowContribModal(true);
   }, []);
 
@@ -103,6 +125,7 @@ export default function GroupScreen() {
     setShowContribModal(false);
     setContribAmount("");
     setContribNote("");
+    setProofImage(null);
   }, []);
 
   // Phase 2 state
@@ -185,34 +208,176 @@ export default function GroupScreen() {
   }, [id]);
 
   const handleAddContribution = async () => {
+    if (submittingRef.current) return;
     const amount = parseFloat(contribAmount);
     if (!amount || amount <= 0) {
       showAlert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
-    // Max amount validation — prevent unreasonable values
     const maxAmount = 999_999_999;
     if (amount > maxAmount) {
       showAlert(t("invalidAmount", lang), t("amountTooLarge", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
+    if (!user) return;
+    submittingRef.current = true;
     try {
-      await addContribution(id!, amount, contribNote || undefined);
+      let proofUrl: string | undefined;
+      if (proofImage) {
+        proofUrl = await uploadContributionProof(user.id, {
+          uri: proofImage,
+          type: "image/jpeg",
+          name: `proof_${Date.now()}.jpg`,
+        });
+      }
+      await addContribution(id!, amount, contribNote || undefined, proofUrl);
       closeContribModal();
       notificationAsync("Success");
     } catch (error: unknown) {
       showAlert(
         t("error", lang),
         getErrorMessage(error) ?? t("couldNotRegister", lang),
-        { icon: "alert-circle", iconColor: Colors.red },
+        { icon: "alert-circle", iconColor: C.red },
       );
+    } finally {
+      submittingRef.current = false;
     }
+  };
+
+  const handlePickProof = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setProofImage(result.assets[0].uri);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    if (!currentGroup) return;
+    try {
+      const allContributions = await fetchAllGroupContributions(id!);
+      const csv = generateCSV(allContributions, currentGroup.name);
+      await shareCSV(csv, `${currentGroup.name}_contributions.csv`);
+    } catch (error: unknown) {
+      showAlert(t("error", lang), getErrorMessage(error), {
+        icon: "alert-circle",
+        iconColor: C.red,
+      });
+    }
+  };
+
+  const handleCompleteGroup = () => {
+    showAlert(t("completeGroup", lang), t("completeGroupConfirm", lang), {
+      icon: "checkmark-circle",
+      iconColor: C.green,
+      buttons: [
+        { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+        {
+          text: t("completeGroup", lang),
+          style: "default",
+          onPress: async () => {
+            dismissAlert();
+            try {
+              await completeGroup(id!);
+              notificationAsync("Success");
+            } catch (error: unknown) {
+              showAlert(t("error", lang), getErrorMessage(error), {
+                icon: "alert-circle",
+                iconColor: C.red,
+              });
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const handleArchiveGroup = () => {
+    showAlert(t("archiveGroup", lang), t("archiveGroupConfirm", lang), {
+      icon: "archive",
+      iconColor: C.yellow,
+      buttons: [
+        { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+        {
+          text: t("archiveGroup", lang),
+          style: "destructive",
+          onPress: async () => {
+            dismissAlert();
+            try {
+              await archiveGroup(id!);
+              notificationAsync("Success");
+              router.replace("/(tabs)");
+            } catch (error: unknown) {
+              showAlert(t("error", lang), getErrorMessage(error), {
+                icon: "alert-circle",
+                iconColor: C.red,
+              });
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const handleReactivateGroup = () => {
+    showAlert(t("reactivateGroup", lang), t("reactivateGroupConfirm", lang), {
+      icon: "refresh",
+      iconColor: C.accent2,
+      buttons: [
+        { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+        {
+          text: t("reactivateGroup", lang),
+          style: "default",
+          onPress: async () => {
+            dismissAlert();
+            try {
+              await reactivateGroup(id!);
+              notificationAsync("Success");
+            } catch (error: unknown) {
+              showAlert(t("error", lang), getErrorMessage(error), {
+                icon: "alert-circle",
+                iconColor: C.red,
+              });
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const handleRemoveMember = (memberId: string, memberName: string) => {
+    showAlert(t("removeMember", lang), t("removeMemberConfirm", lang).replace("{name}", memberName), {
+      icon: "person-remove",
+      iconColor: C.red,
+      buttons: [
+        { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
+        {
+          text: t("removeMember", lang),
+          style: "destructive",
+          onPress: async () => {
+            dismissAlert();
+            try {
+              await removeMember(id!, memberId);
+              notificationAsync("Success");
+            } catch (error: unknown) {
+              showAlert(t("error", lang), getErrorMessage(error), {
+                icon: "alert-circle",
+                iconColor: C.red,
+              });
+            }
+          },
+        },
+      ],
+    });
   };
 
   const handleShare = async () => {
@@ -229,7 +394,7 @@ export default function GroupScreen() {
       showAlert(
         t("codeCopied", lang),
         `${t("code", lang)}: ${currentGroup.invite_code}`,
-        { icon: "copy", iconColor: Colors.accent },
+        { icon: "copy", iconColor: C.accent },
       );
     }
   };
@@ -245,7 +410,7 @@ export default function GroupScreen() {
     if (!amount || amount <= 0) {
       showAlert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
@@ -260,7 +425,7 @@ export default function GroupScreen() {
         getErrorMessage(error) ?? t("couldNotUpdate", lang),
         {
           icon: "alert-circle",
-          iconColor: Colors.red,
+          iconColor: C.red,
         },
       );
     } finally {
@@ -275,7 +440,7 @@ export default function GroupScreen() {
   const handleLeaveGroup = () => {
     showAlert(t("leaveGroup", lang), t("leaveGroupConfirm", lang), {
       icon: "exit-outline",
-      iconColor: Colors.red,
+      iconColor: C.red,
       buttons: [
         { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
         {
@@ -291,12 +456,12 @@ export default function GroupScreen() {
               if (getErrorMessage(error) === "CREATOR_CANNOT_LEAVE") {
                 showAlert(t("error", lang), t("creatorCannotLeave", lang), {
                   icon: "alert-circle",
-                  iconColor: Colors.red,
+                  iconColor: C.red,
                 });
               } else {
                 showAlert(t("error", lang), getErrorMessage(error), {
                   icon: "alert-circle",
-                  iconColor: Colors.red,
+                  iconColor: C.red,
                 });
               }
             }
@@ -309,7 +474,7 @@ export default function GroupScreen() {
   const handleDeleteGroup = () => {
     showAlert(t("deleteGroup", lang), t("deleteGroupConfirm", lang), {
       icon: "trash",
-      iconColor: Colors.red,
+      iconColor: C.red,
       buttons: [
         { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
         {
@@ -324,7 +489,7 @@ export default function GroupScreen() {
             } catch (error: unknown) {
               showAlert(t("error", lang), getErrorMessage(error), {
                 icon: "alert-circle",
-                iconColor: Colors.red,
+                iconColor: C.red,
               });
             }
           },
@@ -348,7 +513,7 @@ export default function GroupScreen() {
     if (!editGroupName.trim()) {
       showAlert(t("error", lang), t("nameRequired", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
@@ -364,7 +529,7 @@ export default function GroupScreen() {
     } catch (error: unknown) {
       showAlert(t("error", lang), getErrorMessage(error), {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
     } finally {
       setIsUpdatingGroup(false);
@@ -377,7 +542,7 @@ export default function GroupScreen() {
       t("deleteContributionConfirm", lang),
       {
         icon: "trash",
-        iconColor: Colors.red,
+        iconColor: C.red,
         buttons: [
           { text: t("cancel", lang), style: "cancel", onPress: dismissAlert },
           {
@@ -391,7 +556,7 @@ export default function GroupScreen() {
               } catch (error: unknown) {
                 showAlert(t("error", lang), getErrorMessage(error), {
                   icon: "alert-circle",
-                  iconColor: Colors.red,
+                  iconColor: C.red,
                 });
               }
             },
@@ -417,7 +582,7 @@ export default function GroupScreen() {
     if (!amount || amount <= 0) {
       showAlert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
@@ -431,7 +596,7 @@ export default function GroupScreen() {
     } catch (error: unknown) {
       showAlert(t("error", lang), getErrorMessage(error), {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
     }
   };
@@ -469,14 +634,23 @@ export default function GroupScreen() {
     [currentGroup?.deadline, lang, dateLocale],
   );
 
+  const StatRow = ({ label, value, color, small }: { label: string; value: string | number; color?: string; small?: boolean }) => (
+    <View style={styles.statRow}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, color && { color }, small && { fontSize: FontSize.xs }]}>
+        {value}
+      </Text>
+    </View>
+  );
+
   if (!currentGroup) {
     return (
       <SafeAreaView style={styles.container}>
         <View
           style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
         >
-          <ActivityIndicator size="large" color={Colors.accent2} />
-          <Text style={{ color: Colors.text2, marginTop: Spacing.md }}>
+          <ActivityIndicator size="large" color={C.accent2} />
+          <Text style={{ color: C.text2, marginTop: Spacing.md }}>
             {t("loadingGroup", lang)}
           </Text>
         </View>
@@ -505,7 +679,7 @@ export default function GroupScreen() {
           <RefreshControl
             refreshing={isLoading}
             onRefresh={onRefresh}
-            tintColor={Colors.accent2}
+            tintColor={C.accent2}
           />
         }
       >
@@ -547,7 +721,7 @@ export default function GroupScreen() {
                     <Ionicons
                       name="people-outline"
                       size={14}
-                      color={Colors.accent2}
+                      color={C.accent2}
                     />
                     <Text style={[styles.pillText, { marginLeft: 4 }]}>
                       {currentGroup.members?.length ?? 0}
@@ -560,7 +734,7 @@ export default function GroupScreen() {
                     <Ionicons
                       name="calendar-outline"
                       size={14}
-                      color={Colors.accent2}
+                      color={C.accent2}
                     />
                     <Text style={[styles.pillText, { marginLeft: 4 }]}>
                       {currentGroup.days_remaining}d
@@ -598,7 +772,7 @@ export default function GroupScreen() {
           >
             <Card
               style={{
-                borderColor: isGoalCompleted ? Colors.green : Colors.yellow,
+                borderColor: isGoalCompleted ? C.green : C.yellow,
                 borderWidth: 1,
               }}
             >
@@ -612,14 +786,14 @@ export default function GroupScreen() {
                 <Ionicons
                   name={isGoalCompleted ? "checkmark-circle" : "time"}
                   size={28}
-                  color={isGoalCompleted ? Colors.green : Colors.yellow}
+                  color={isGoalCompleted ? C.green : C.yellow}
                 />
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{
                       fontSize: FontSize.lg,
                       fontWeight: "900",
-                      color: isGoalCompleted ? Colors.green : Colors.yellow,
+                      color: isGoalCompleted ? C.green : C.yellow,
                     }}
                   >
                     {isGoalCompleted
@@ -629,7 +803,7 @@ export default function GroupScreen() {
                   <Text
                     style={{
                       fontSize: FontSize.sm,
-                      color: Colors.text2,
+                      color: C.text2,
                       marginTop: 2,
                     }}
                   >
@@ -660,8 +834,8 @@ export default function GroupScreen() {
                       x2="100%"
                       y2="0%"
                     >
-                      <Stop offset="0%" stopColor={Colors.accent} />
-                      <Stop offset="100%" stopColor={Colors.accent2} />
+                      <Stop offset="0%" stopColor={C.accent} />
+                      <Stop offset="100%" stopColor={C.accent2} />
                     </SvgGradient>
                   </Defs>
                   <Circle
@@ -669,7 +843,7 @@ export default function GroupScreen() {
                     cy="50"
                     r={radius}
                     fill="none"
-                    stroke={Colors.surface3}
+                    stroke={C.surface3}
                     strokeWidth="11"
                   />
                   <Circle
@@ -701,7 +875,7 @@ export default function GroupScreen() {
                     currentGroup.total_saved,
                     settings.currency,
                   )}
-                  color={Colors.green}
+                  color={C.green}
                 />
                 <StatRow
                   label={t("totalGoal", lang)}
@@ -716,7 +890,7 @@ export default function GroupScreen() {
                     currentGroup.total_goal - currentGroup.total_saved,
                     settings.currency,
                   )}
-                  color={Colors.yellow}
+                  color={C.yellow}
                 />
                 <StatRow
                   label={t("deadline", lang)}
@@ -759,7 +933,7 @@ export default function GroupScreen() {
                         <Ionicons
                           name="pencil"
                           size={14}
-                          color={Colors.accent2}
+                          color={C.accent2}
                         />
                       </TouchableOpacity>
                     )}
@@ -767,7 +941,7 @@ export default function GroupScreen() {
                 </View>
                 <View style={styles.progressTrack}>
                   <LinearGradient
-                    colors={Colors.gradientPrimary}
+                    colors={C.gradientPrimary}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[
@@ -780,7 +954,7 @@ export default function GroupScreen() {
                 </View>
                 <View style={styles.myProgressFooter}>
                   <Text style={styles.myProgressHint}>
-                    <Ionicons name="wallet" size={12} color={Colors.text2} />{" "}
+                    <Ionicons name="wallet" size={12} color={C.text2} />{" "}
                     {t("saveEvery", lang)}{" "}
                     {formatCurrency(
                       currentGroup.per_period_needed,
@@ -815,7 +989,7 @@ export default function GroupScreen() {
             style={styles.tabBar}
             contentContainerStyle={styles.tabBarContent}
           >
-            {(["members", "ranking", "history", "calendar"] as TabType[]).map(
+            {(["members", "ranking", "history", "calendar", "chat", "stats"] as TabType[]).map(
               (tab) => {
                 const labels: Record<TabType, { icon: string; text: string }> =
                   {
@@ -823,6 +997,8 @@ export default function GroupScreen() {
                     ranking: { icon: "trophy", text: t("ranking", lang) },
                     history: { icon: "list", text: t("history", lang) },
                     calendar: { icon: "calendar", text: t("calendar", lang) },
+                    chat: { icon: "chatbubbles", text: t("chat", lang) },
+                    stats: { icon: "stats-chart", text: t("stats", lang) },
                   };
                 const tabInfo = labels[tab];
                 return (
@@ -834,7 +1010,7 @@ export default function GroupScreen() {
                     <Ionicons
                       name={tabInfo.icon as any}
                       size={16}
-                      color={activeTab === tab ? Colors.accent2 : Colors.text3}
+                      color={activeTab === tab ? C.accent2 : C.text3}
                       style={{ marginRight: 6 }}
                     />
                     <Text
@@ -855,11 +1031,23 @@ export default function GroupScreen() {
             {activeTab === "members" && (
               <>
                 {currentGroup.members?.map((member) => (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    isCurrentUser={member.user_id === user?.id}
-                  />
+                  <View key={member.id} style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View style={{ flex: 1 }}>
+                      <MemberRow
+                        member={member}
+                        isCurrentUser={member.user_id === user?.id}
+                      />
+                    </View>
+                    {isCreator && member.user_id !== user?.id && (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveMember(member.user_id, member.user?.name ?? "")}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ paddingHorizontal: Spacing.sm }}
+                      >
+                        <Ionicons name="person-remove-outline" size={18} color={C.red} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 ))}
               </>
             )}
@@ -883,6 +1071,24 @@ export default function GroupScreen() {
 
             {activeTab === "history" && (
               <>
+                {contributions.length > 0 && (
+                  <TouchableOpacity
+                    onPress={handleExportCSV}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      gap: 6,
+                      paddingHorizontal: 4,
+                      paddingBottom: Spacing.sm,
+                    }}
+                  >
+                    <Ionicons name="download-outline" size={16} color={C.accent2} />
+                    <Text style={{ color: C.accent2, fontSize: FontSize.xs, fontWeight: "700" }}>
+                      {t("exportCSV", lang)}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 {contributions.length === 0 ? (
                   <Text style={styles.emptyText}>
                     {t("noContributions", lang)}
@@ -893,7 +1099,7 @@ export default function GroupScreen() {
                       <View
                         style={[
                           styles.historyDot,
-                          { backgroundColor: Colors.green },
+                          { backgroundColor: C.green },
                         ]}
                       />
                       <View style={{ flex: 1 }}>
@@ -921,7 +1127,7 @@ export default function GroupScreen() {
                             <Ionicons
                               name="pencil"
                               size={16}
-                              color={Colors.accent2}
+                              color={C.accent2}
                             />
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -931,13 +1137,26 @@ export default function GroupScreen() {
                             <Ionicons
                               name="trash"
                               size={16}
-                              color={Colors.red}
+                              color={C.red}
                             />
                           </TouchableOpacity>
                         </View>
                       )}
                     </View>
                   ))
+                )}
+                {hasMore && contributions.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => loadMoreContributions(id!)}
+                    style={{
+                      paddingVertical: Spacing.md,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ color: C.accent2, fontWeight: "700", fontSize: FontSize.sm }}>
+                      {contribLoading ? t("loading", lang) : t("loadMore", lang)}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </>
             )}
@@ -949,6 +1168,14 @@ export default function GroupScreen() {
                 currency={settings.currency}
                 lang={lang}
               />
+            )}
+
+            {activeTab === "chat" && (
+              <GroupChat groupId={id!} />
+            )}
+
+            {activeTab === "stats" && currentGroup && (
+              <GroupStats group={currentGroup} />
             )}
           </Card>
         </View>
@@ -982,15 +1209,12 @@ export default function GroupScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <TouchableOpacity
-            style={styles.modalBg}
-            activeOpacity={1}
-            onPress={closeContribModal}
-          >
+          <View style={styles.modalBg}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeContribModal} />
             <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
               <View style={styles.modalTitleContent}>
-                <Ionicons name="wallet-outline" size={20} color={Colors.text} />
+                <Ionicons name="wallet-outline" size={20} color={C.text} />
                 <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
                   {t("registerContribTitle", lang)}
                 </Text>
@@ -1008,7 +1232,7 @@ export default function GroupScreen() {
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0"
-                  placeholderTextColor={Colors.text3}
+                  placeholderTextColor={C.text3}
                   value={contribAmount}
                   onChangeText={setContribAmount}
                   keyboardType="numeric"
@@ -1036,10 +1260,43 @@ export default function GroupScreen() {
               <TextInput
                 style={styles.noteInput}
                 placeholder={t("noteOptional", lang)}
-                placeholderTextColor={Colors.text3}
+                placeholderTextColor={C.text3}
                 value={contribNote}
                 onChangeText={setContribNote}
               />
+
+              {/* Optional proof photo */}
+              {proofImage ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md }}>
+                  <Image source={{ uri: proofImage }} style={{ width: 56, height: 56, borderRadius: Radius.md }} />
+                  <Text style={{ flex: 1, color: C.green, fontSize: FontSize.sm, fontWeight: "700" }}>
+                    {t("proofAttached", lang)}
+                  </Text>
+                  <TouchableOpacity onPress={() => setProofImage(null)}>
+                    <Ionicons name="close-circle" size={22} color={C.red} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={handlePickProof}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: Spacing.md,
+                    backgroundColor: C.surface2,
+                    borderRadius: Radius.md,
+                    borderWidth: 1,
+                    borderColor: C.surface3,
+                  }}
+                >
+                  <Ionicons name="camera-outline" size={20} color={C.text2} />
+                  <Text style={{ color: C.text2, fontSize: FontSize.sm }}>
+                    {t("addProof", lang)}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <Button
                 title={t("confirmContribution", lang)}
@@ -1047,7 +1304,7 @@ export default function GroupScreen() {
                 isLoading={contribLoading}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1062,15 +1319,12 @@ export default function GroupScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <TouchableOpacity
-            style={styles.modalBg}
-            activeOpacity={1}
-            onPress={() => setShowEditGoalModal(false)}
-          >
+          <View style={styles.modalBg}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditGoalModal(false)} />
             <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
               <View style={styles.modalTitleContent}>
-                <Ionicons name="create-outline" size={20} color={Colors.text} />
+                <Ionicons name="create-outline" size={20} color={C.text} />
                 <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
                   {t("editMyGoal", lang)}
                 </Text>
@@ -1084,7 +1338,7 @@ export default function GroupScreen() {
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0"
-                  placeholderTextColor={Colors.text3}
+                  placeholderTextColor={C.text3}
                   value={editGoalAmount}
                   onChangeText={setEditGoalAmount}
                   keyboardType="numeric"
@@ -1098,7 +1352,7 @@ export default function GroupScreen() {
                 isLoading={isUpdatingGoal}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1109,15 +1363,12 @@ export default function GroupScreen() {
         transparent
         onRequestClose={() => setShowSettingsModal(false)}
       >
-        <TouchableOpacity
-          style={styles.modalBg}
-          activeOpacity={1}
-          onPress={() => setShowSettingsModal(false)}
-        >
+        <View style={styles.modalBg}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSettingsModal(false)} />
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <View style={styles.modalTitleContent}>
-              <Ionicons name="settings-outline" size={20} color={Colors.text} />
+              <Ionicons name="settings-outline" size={20} color={C.text} />
               <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
                 {t("groupSettings", lang)}
               </Text>
@@ -1128,77 +1379,74 @@ export default function GroupScreen() {
                 style={styles.settingsOption}
                 onPress={handleOpenEditGroup}
               >
-                <Ionicons
-                  name="create-outline"
-                  size={20}
-                  color={Colors.accent2}
-                />
-                <Text style={styles.settingsOptionText}>
-                  {t("editGroup", lang)}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={Colors.text3}
-                />
+                <Ionicons name="create-outline" size={20} color={C.accent2} />
+                <Text style={styles.settingsOptionText}>{t("editGroup", lang)}</Text>
+                <Ionicons name="chevron-forward" size={18} color={C.text3} />
+              </TouchableOpacity>
+            )}
+
+            {isCreator && currentGroup.status !== "completed" && (
+              <TouchableOpacity
+                style={styles.settingsOption}
+                onPress={() => { setShowSettingsModal(false); handleCompleteGroup(); }}
+              >
+                <Ionicons name="checkmark-circle-outline" size={20} color={C.green} />
+                <Text style={styles.settingsOptionText}>{t("completeGroup", lang)}</Text>
+                <Ionicons name="chevron-forward" size={18} color={C.text3} />
+              </TouchableOpacity>
+            )}
+
+            {isCreator && currentGroup.status === "archived" && (
+              <TouchableOpacity
+                style={styles.settingsOption}
+                onPress={() => { setShowSettingsModal(false); handleReactivateGroup(); }}
+              >
+                <Ionicons name="refresh-outline" size={20} color={C.accent2} />
+                <Text style={styles.settingsOptionText}>{t("reactivateGroup", lang)}</Text>
+                <Ionicons name="chevron-forward" size={18} color={C.text3} />
               </TouchableOpacity>
             )}
 
             {!isCreator && (
               <TouchableOpacity
                 style={styles.settingsOption}
-                onPress={() => {
-                  setShowSettingsModal(false);
-                  handleLeaveGroup();
-                }}
+                onPress={() => { setShowSettingsModal(false); handleLeaveGroup(); }}
               >
-                <Ionicons
-                  name="log-out-outline"
-                  size={20}
-                  color={Colors.yellow}
-                />
-                <Text style={styles.settingsOptionText}>
-                  {t("leaveGroup", lang)}
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={Colors.text3}
-                />
+                <Ionicons name="log-out-outline" size={20} color={C.yellow} />
+                <Text style={styles.settingsOptionText}>{t("leaveGroup", lang)}</Text>
+                <Ionicons name="chevron-forward" size={18} color={C.text3} />
               </TouchableOpacity>
             )}
 
             {isCreator && (
               <View style={styles.dangerZone}>
-                <Text style={styles.dangerZoneLabel}>
-                  {t("dangerZone", lang)}
-                </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.settingsOption,
-                    { borderColor: "rgba(255,59,48,0.2)" },
-                  ]}
-                  onPress={() => {
-                    setShowSettingsModal(false);
-                    handleDeleteGroup();
-                  }}
-                >
-                  <Ionicons name="trash-outline" size={20} color={Colors.red} />
-                  <Text
-                    style={[styles.settingsOptionText, { color: Colors.red }]}
+                <Text style={styles.dangerZoneLabel}>{t("dangerZone", lang)}</Text>
+                {currentGroup.status !== "archived" && (
+                  <TouchableOpacity
+                    style={[styles.settingsOption, { borderColor: "rgba(255,200,0,0.3)" }]}
+                    onPress={() => { setShowSettingsModal(false); handleArchiveGroup(); }}
                   >
+                    <Ionicons name="archive-outline" size={20} color={C.yellow} />
+                    <Text style={[styles.settingsOptionText, { color: C.yellow }]}>
+                      {t("archiveGroup", lang)}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={C.text3} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.settingsOption, { borderColor: "rgba(255,59,48,0.2)" }]}
+                  onPress={() => { setShowSettingsModal(false); handleDeleteGroup(); }}
+                >
+                  <Ionicons name="trash-outline" size={20} color={C.red} />
+                  <Text style={[styles.settingsOptionText, { color: C.red }]}>
                     {t("deleteGroup", lang)}
                   </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={Colors.text3}
-                  />
+                  <Ionicons name="chevron-forward" size={18} color={C.text3} />
                 </TouchableOpacity>
               </View>
             )}
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Edit Group Modal */}
@@ -1212,18 +1460,12 @@ export default function GroupScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <TouchableOpacity
-            style={styles.modalBg}
-            activeOpacity={1}
-            onPress={() => setShowEditGroupModal(false)}
-          >
-            <View
-              style={styles.modalSheet}
-              onStartShouldSetResponder={() => true}
-            >
+          <View style={styles.modalBg}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditGroupModal(false)} />
+            <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
               <View style={styles.modalTitleContent}>
-                <Ionicons name="create-outline" size={20} color={Colors.text} />
+                <Ionicons name="create-outline" size={20} color={C.text} />
                 <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
                   {t("editGroup", lang)}
                 </Text>
@@ -1235,7 +1477,7 @@ export default function GroupScreen() {
                 value={editGroupName}
                 onChangeText={setEditGroupName}
                 placeholder={t("groupName", lang)}
-                placeholderTextColor={Colors.text3}
+                placeholderTextColor={C.text3}
                 maxLength={50}
               />
 
@@ -1256,8 +1498,8 @@ export default function GroupScreen() {
                       size={22}
                       color={
                         editGroupEmoji.name === icon.name
-                          ? Colors.accent2
-                          : Colors.text2
+                          ? C.accent2
+                          : C.text2
                       }
                     />
                   </TouchableOpacity>
@@ -1270,7 +1512,7 @@ export default function GroupScreen() {
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0"
-                  placeholderTextColor={Colors.text3}
+                  placeholderTextColor={C.text3}
                   value={editGroupGoal}
                   onChangeText={setEditGroupGoal}
                   keyboardType="numeric"
@@ -1283,7 +1525,7 @@ export default function GroupScreen() {
                 isLoading={isUpdatingGroup}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1298,15 +1540,12 @@ export default function GroupScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <TouchableOpacity
-            style={styles.modalBg}
-            activeOpacity={1}
-            onPress={() => setShowEditContribModal(false)}
-          >
+          <View style={styles.modalBg}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowEditContribModal(false)} />
             <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
               <View style={styles.modalTitleContent}>
-                <Ionicons name="pencil-outline" size={20} color={Colors.text} />
+                <Ionicons name="pencil-outline" size={20} color={C.text} />
                 <Text style={[styles.modalTitle, { marginLeft: 8 }]}>
                   {t("editContribution", lang)}
                 </Text>
@@ -1317,7 +1556,7 @@ export default function GroupScreen() {
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0"
-                  placeholderTextColor={Colors.text3}
+                  placeholderTextColor={C.text3}
                   value={editContribAmount}
                   onChangeText={setEditContribAmount}
                   keyboardType="numeric"
@@ -1328,7 +1567,7 @@ export default function GroupScreen() {
               <TextInput
                 style={styles.noteInput}
                 placeholder={t("noteOptional", lang)}
-                placeholderTextColor={Colors.text3}
+                placeholderTextColor={C.text3}
                 value={editContribNote}
                 onChangeText={setEditContribNote}
               />
@@ -1339,7 +1578,7 @@ export default function GroupScreen() {
                 isLoading={contribLoading}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1368,39 +1607,13 @@ export default function GroupScreen() {
   );
 }
 
-function StatRow({
-  label,
-  value,
-  color,
-  small,
-}: {
-  label: string;
-  value: string | number;
-  color?: string;
-  small?: boolean;
-}) {
-  return (
-    <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text
-        style={[
-          styles.statValue,
-          color && { color },
-          small && { fontSize: FontSize.xs },
-        ]}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+const createStyles = (C: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
   header: { padding: Spacing.xl, paddingBottom: Spacing.lg },
   backBtn: { marginBottom: Spacing.md },
   backText: {
-    color: Colors.accent2,
+    color: C.accent2,
     fontWeight: "700",
     fontSize: FontSize.base,
   },
@@ -1413,25 +1626,25 @@ const styles = StyleSheet.create({
   groupName: {
     fontSize: FontSize.xxl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     marginBottom: Spacing.sm,
   },
   headerPills: { flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" },
   pill: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
-  pillText: { fontSize: FontSize.xs, fontWeight: "700", color: Colors.text2 },
+  pillText: { fontSize: FontSize.xs, fontWeight: "700", color: C.text2 },
   shareBtn: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1447,36 +1660,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ringLabel: { position: "absolute", alignItems: "center" },
-  ringPct: { fontSize: FontSize.xl, fontWeight: "900", color: Colors.text },
-  ringSubtitle: { fontSize: FontSize.xs, color: Colors.text2 },
+  ringPct: { fontSize: FontSize.xl, fontWeight: "900", color: C.text },
+  ringSubtitle: { fontSize: FontSize.xs, color: C.text2 },
   statsCol: { flex: 1, gap: Spacing.sm },
   statRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  statLabel: { fontSize: FontSize.xs, color: Colors.text2 },
-  statValue: { fontSize: FontSize.sm, fontWeight: "800", color: Colors.text },
+  statLabel: { fontSize: FontSize.xs, color: C.text2 },
+  statValue: { fontSize: FontSize.sm, fontWeight: "800", color: C.text },
   myProgress: {
     borderTopWidth: 1,
-    borderTopColor: Colors.surface3,
+    borderTopColor: C.surface3,
     paddingTop: Spacing.md,
     gap: Spacing.sm,
   },
   myProgressHeader: { flexDirection: "row", justifyContent: "space-between" },
   myProgressLabel: {
     fontSize: FontSize.sm,
-    color: Colors.text2,
+    color: C.text2,
     fontWeight: "600",
   },
   myProgressValue: {
     fontSize: FontSize.sm,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
   },
   progressTrack: {
     height: 8,
-    backgroundColor: Colors.surface3,
+    backgroundColor: C.surface3,
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -1486,9 +1699,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  myProgressHint: { fontSize: FontSize.xs, color: Colors.text2 },
+  myProgressHint: { fontSize: FontSize.xs, color: C.text2 },
   tabBar: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     padding: 4,
     marginBottom: Spacing.md,
@@ -1505,12 +1718,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
   },
-  tabActive: { backgroundColor: Colors.surface },
-  tabText: { fontSize: FontSize.xs, fontWeight: "700", color: Colors.text2 },
-  tabTextActive: { color: Colors.text },
+  tabActive: { backgroundColor: C.surface },
+  tabText: { fontSize: FontSize.xs, fontWeight: "700", color: C.text2 },
+  tabTextActive: { color: C.text },
   rankingSubtitle: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
     marginBottom: Spacing.sm,
     paddingHorizontal: 4,
   },
@@ -1520,7 +1733,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surface3,
+    borderBottomColor: C.surface3,
   },
   historyDot: {
     width: 8,
@@ -1529,17 +1742,17 @@ const styles = StyleSheet.create({
     marginTop: 6,
     flexShrink: 0,
   },
-  historyName: { fontSize: FontSize.base, color: Colors.text },
+  historyName: { fontSize: FontSize.base, color: C.text },
   historyNote: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
     fontStyle: "italic",
     marginTop: 2,
   },
-  historyDate: { fontSize: FontSize.xs, color: Colors.text3, marginTop: 2 },
+  historyDate: { fontSize: FontSize.xs, color: C.text3, marginTop: 2 },
   emptyText: {
     textAlign: "center",
-    color: Colors.text2,
+    color: C.text2,
     fontSize: FontSize.base,
     paddingVertical: Spacing.xl,
   },
@@ -1550,7 +1763,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalSheet: {
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
     padding: Spacing.xl,
@@ -1560,55 +1773,55 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: Colors.surface3,
+    backgroundColor: C.surface3,
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: Spacing.sm,
   },
-  modalTitle: { fontSize: FontSize.xl, fontWeight: "900", color: Colors.text },
-  modalSubtitle: { fontSize: FontSize.sm, color: Colors.text2 },
+  modalTitle: { fontSize: FontSize.xl, fontWeight: "900", color: C.text },
+  modalSubtitle: { fontSize: FontSize.sm, color: C.text2 },
   amountWrap: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     paddingHorizontal: Spacing.lg,
   },
-  currencySymbol: { fontSize: 28, fontWeight: "900", color: Colors.text2 },
+  currencySymbol: { fontSize: 28, fontWeight: "900", color: C.text2 },
   amountInput: {
     flex: 1,
     paddingVertical: 14,
     fontSize: 36,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     textAlign: "center",
   },
   quickAmounts: { flexDirection: "row", gap: Spacing.sm },
   quickBtn: {
     flex: 1,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     paddingVertical: 10,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   quickBtnText: {
     fontSize: FontSize.base,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
   },
   noteInput: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
     fontSize: FontSize.base,
-    color: Colors.text,
+    color: C.text,
   },
   streakBadgeContainer: {
     flexDirection: "row",
@@ -1640,35 +1853,35 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   settingsOptionText: {
     flex: 1,
     fontSize: FontSize.base,
     fontWeight: "700",
-    color: Colors.text,
+    color: C.text,
   },
   dangerZone: {
     gap: Spacing.sm,
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.surface3,
+    borderTopColor: C.surface3,
   },
   dangerZoneLabel: {
     fontSize: FontSize.xs,
     fontWeight: "800",
-    color: Colors.red,
+    color: C.red,
     textTransform: "uppercase",
     letterSpacing: 1,
   },
   inputLabel: {
     fontSize: FontSize.sm,
     fontWeight: "700",
-    color: Colors.text2,
+    color: C.text2,
     marginBottom: 4,
   },
   emojiGrid: {
@@ -1680,14 +1893,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   emojiBtnActive: {
-    borderColor: Colors.accent2,
-    backgroundColor: Colors.surface,
+    borderColor: C.accent2,
+    backgroundColor: C.surface,
   },
 });

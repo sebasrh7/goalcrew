@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -15,7 +15,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertModal, SelectModal } from "../src/components/AlertModal";
-import { Colors, FontSize, Radius, Spacing } from "../src/constants";
+import { FontSize, Radius, Spacing } from "../src/constants";
+import { useColors } from "../src/lib/useColors";
 import { CURRENCIES } from "../src/lib/currency";
 import { t } from "../src/lib/i18n";
 import {
@@ -28,6 +29,8 @@ import { useSettingsStore } from "../src/store/settingsStore";
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
   const { user, signOut, updateProfile, deleteAccount } = useAuthStore();
   const { settings, isLoading, loadSettings, updateSettings } =
     useSettingsStore();
@@ -36,6 +39,7 @@ export default function SettingsScreen() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -104,7 +108,7 @@ export default function SettingsScreen() {
     if (!trimmedName) {
       showAlert(translate("error"), translate("nameRequiredProfile"), {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
       return;
     }
@@ -114,12 +118,12 @@ export default function SettingsScreen() {
       setShowProfileModal(false);
       showAlert(translate("success"), translate("profileUpdated"), {
         icon: "checkmark-circle",
-        iconColor: Colors.green,
+        iconColor: C.green,
       });
     } catch (error: unknown) {
       showAlert(translate("error"), translate("profileUpdateError"), {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
     } finally {
       setIsSaving(false);
@@ -162,7 +166,7 @@ export default function SettingsScreen() {
     } catch (error) {
       showAlert(translate("error"), translate("settingsUpdateError"), {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
     } finally {
       setIsSaving(false);
@@ -219,7 +223,7 @@ export default function SettingsScreen() {
     } catch (error: unknown) {
       showAlert(translate("error"), translate("deleteAccountError"), {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
     } finally {
       setIsDeleting(false);
@@ -252,7 +256,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={24} color={C.text} />
         </TouchableOpacity>
         <Text style={styles.title}>{translate("settings")}</Text>
         <View style={{ width: 24 }} />
@@ -270,12 +274,12 @@ export default function SettingsScreen() {
             onPress={handlePersonalInfo}
           >
             <View style={styles.settingLeft}>
-              <Ionicons name="person-outline" size={20} color={Colors.text} />
+              <Ionicons name="person-outline" size={20} color={C.text} />
               <Text style={styles.settingLabel}>
                 {translate("personalInfo")}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
+            <Ionicons name="chevron-forward" size={16} color={C.text3} />
           </TouchableOpacity>
         </View>
 
@@ -291,12 +295,12 @@ export default function SettingsScreen() {
             disabled={isSaving}
           >
             <View style={styles.settingLeft}>
-              <Ionicons name="language-outline" size={20} color={Colors.text} />
+              <Ionicons name="language-outline" size={20} color={C.text} />
               <Text style={styles.settingLabel}>{translate("language")}</Text>
             </View>
             <View style={styles.settingRight}>
               <Text style={styles.settingValue}>{currentLanguageLabel}</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
+              <Ionicons name="chevron-forward" size={16} color={C.text3} />
             </View>
           </TouchableOpacity>
 
@@ -306,14 +310,31 @@ export default function SettingsScreen() {
             disabled={isSaving}
           >
             <View style={styles.settingLeft}>
-              <Ionicons name="card-outline" size={20} color={Colors.text} />
+              <Ionicons name="card-outline" size={20} color={C.text} />
               <Text style={styles.settingLabel}>{translate("currency")}</Text>
             </View>
             <View style={styles.settingRight}>
               <Text style={styles.settingValue}>
                 {getCurrentCurrencyLabel()}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
+              <Ionicons name="chevron-forward" size={16} color={C.text3} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.settingItem, isSaving && styles.settingItemDisabled]}
+            onPress={() => setShowThemeModal(true)}
+            disabled={isSaving}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name={settings.theme === "dark" ? "moon-outline" : settings.theme === "light" ? "sunny-outline" : "phone-portrait-outline"} size={20} color={C.text} />
+              <Text style={styles.settingLabel}>{translate("theme")}</Text>
+            </View>
+            <View style={styles.settingRight}>
+              <Text style={styles.settingValue}>
+                {settings.theme === "dark" ? translate("darkMode") : settings.theme === "light" ? translate("lightMode") : "Auto"}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={C.text3} />
             </View>
           </TouchableOpacity>
         </View>
@@ -329,7 +350,7 @@ export default function SettingsScreen() {
               <Ionicons
                 name="notifications-outline"
                 size={20}
-                color={Colors.text}
+                color={C.text}
               />
               <Text style={styles.settingLabel}>
                 {translate("pushNotifications")}
@@ -340,15 +361,15 @@ export default function SettingsScreen() {
               onValueChange={(value) =>
                 handleToggle("push_notifications", value)
               }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
               disabled={isSaving}
             />
           </View>
 
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
-              <Ionicons name="alarm-outline" size={20} color={Colors.text} />
+              <Ionicons name="alarm-outline" size={20} color={C.text} />
               <Text style={styles.settingLabel}>
                 {translate("contributionReminders")}
               </Text>
@@ -358,15 +379,15 @@ export default function SettingsScreen() {
               onValueChange={(value) =>
                 handleToggle("contribution_reminders", value)
               }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
               disabled={isSaving}
             />
           </View>
 
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
-              <Ionicons name="trophy-outline" size={20} color={Colors.text} />
+              <Ionicons name="trophy-outline" size={20} color={C.text} />
               <Text style={styles.settingLabel}>
                 {translate("achievementNotifications")}
               </Text>
@@ -376,8 +397,8 @@ export default function SettingsScreen() {
               onValueChange={(value) =>
                 handleToggle("achievement_notifications", value)
               }
-              trackColor={{ false: Colors.surface3, true: Colors.accent }}
-              thumbColor={Colors.bg}
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
               disabled={isSaving}
             />
           </View>
@@ -394,12 +415,12 @@ export default function SettingsScreen() {
             onPress={handleDeleteAccount}
           >
             <View style={styles.settingLeft}>
-              <Ionicons name="trash-outline" size={20} color={Colors.red} />
-              <Text style={[styles.settingLabel, { color: Colors.red }]}>
+              <Ionicons name="trash-outline" size={20} color={C.red} />
+              <Text style={[styles.settingLabel, { color: C.red }]}>
                 {translate("deleteAccount")}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.red} />
+            <Ionicons name="chevron-forward" size={16} color={C.red} />
           </TouchableOpacity>
         </View>
 
@@ -427,7 +448,7 @@ export default function SettingsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{translate("editProfile")}</Text>
               <TouchableOpacity onPress={() => setShowProfileModal(false)}>
-                <Ionicons name="close" size={24} color={Colors.text} />
+                <Ionicons name="close" size={24} color={C.text} />
               </TouchableOpacity>
             </View>
 
@@ -438,7 +459,7 @@ export default function SettingsScreen() {
                 value={editName}
                 onChangeText={setEditName}
                 placeholder={translate("yourName")}
-                placeholderTextColor={Colors.text3}
+                placeholderTextColor={C.text3}
                 autoFocus
                 maxLength={50}
               />
@@ -464,7 +485,7 @@ export default function SettingsScreen() {
                 disabled={isSaving}
               >
                 {isSaving ? (
-                  <ActivityIndicator size="small" color={Colors.bg} />
+                  <ActivityIndicator size="small" color={C.bg} />
                 ) : (
                   <Text style={styles.saveButtonText}>{translate("save")}</Text>
                 )}
@@ -498,6 +519,23 @@ export default function SettingsScreen() {
         onClose={() => setShowLanguageModal(false)}
       />
 
+      {/* Theme Selection Modal */}
+      <SelectModal
+        visible={showThemeModal}
+        title={translate("theme")}
+        options={[
+          { label: translate("darkMode"), value: "dark" },
+          { label: translate("lightMode"), value: "light" },
+          { label: "Auto", value: "auto" },
+        ]}
+        selectedValue={settings.theme}
+        onSelect={(value) => {
+          setShowThemeModal(false);
+          handleSettingUpdate("theme", value);
+        }}
+        onClose={() => setShowThemeModal(false)}
+      />
+
       {/* Generic Alert Modal */}
       <AlertModal
         visible={alertModal.visible}
@@ -515,7 +553,7 @@ export default function SettingsScreen() {
         title={translate("deleteAccount")}
         message={translate("deleteAccountConfirm")}
         icon="warning"
-        iconColor={Colors.red}
+        iconColor={C.red}
         onDismiss={() => setShowDeleteStep1(false)}
         buttons={[
           {
@@ -537,7 +575,7 @@ export default function SettingsScreen() {
         title={translate("finalConfirmation")}
         message={translate("typeDeleteConfirm")}
         icon="trash"
-        iconColor={Colors.red}
+        iconColor={C.red}
         onDismiss={() => setShowDeleteStep2(false)}
         buttons={[
           {
@@ -556,7 +594,7 @@ export default function SettingsScreen() {
       {/* Deleting Account Overlay */}
       {isDeleting && (
         <View style={styles.deletingOverlay}>
-          <ActivityIndicator size="large" color={Colors.red} />
+          <ActivityIndicator size="large" color={C.red} />
           <Text style={styles.deletingText}>
             {translate("deletingAccount")}
           </Text>
@@ -566,10 +604,10 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bg,
+    backgroundColor: C.bg,
   },
   loading: {
     flex: 1,
@@ -578,7 +616,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: FontSize.base,
-    color: Colors.text2,
+    color: C.text2,
   },
   header: {
     flexDirection: "row",
@@ -587,7 +625,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surface3,
+    borderBottomColor: C.surface3,
   },
   backButton: {
     padding: 4,
@@ -595,7 +633,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.xl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
   },
   content: {
     flex: 1,
@@ -607,7 +645,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FontSize.sm,
     fontWeight: "700",
-    color: Colors.text2,
+    color: C.text2,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: Spacing.md,
@@ -618,11 +656,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderRadius: Radius.lg,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   settingItemDisabled: {
     opacity: 0.6,
@@ -639,13 +677,13 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     fontSize: FontSize.base,
-    color: Colors.text,
+    color: C.text,
     marginLeft: Spacing.md,
     fontWeight: "500",
   },
   settingValue: {
     fontSize: FontSize.sm,
-    color: Colors.text2,
+    color: C.text2,
     fontWeight: "500",
   },
   dangerItem: {
@@ -659,11 +697,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: FontSize.xs,
-    color: Colors.text3,
+    color: C.text3,
   },
   savingText: {
     fontSize: FontSize.xs,
-    color: Colors.accent2,
+    color: C.accent2,
     fontWeight: "600",
     marginTop: Spacing.sm,
   },
@@ -677,12 +715,12 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "100%",
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderRadius: Radius.xl,
     paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   modalHeader: {
     flexDirection: "row",
@@ -693,7 +731,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: FontSize.xl,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
   },
   modalBody: {
     marginBottom: Spacing.xl,
@@ -701,26 +739,26 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: FontSize.sm,
     fontWeight: "600",
-    color: Colors.text2,
+    color: C.text2,
     marginBottom: Spacing.xs,
     marginTop: Spacing.md,
   },
   textInput: {
-    backgroundColor: Colors.bg,
+    backgroundColor: C.bg,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     fontSize: FontSize.base,
-    color: Colors.text,
+    color: C.text,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
   },
   textInputDisabled: {
     opacity: 0.5,
   },
   disabledText: {
     fontSize: FontSize.base,
-    color: Colors.text3,
+    color: C.text3,
   },
   modalFooter: {
     flexDirection: "row",
@@ -731,24 +769,24 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: Radius.lg,
     alignItems: "center",
-    backgroundColor: Colors.surface3,
+    backgroundColor: C.surface3,
   },
   cancelButtonText: {
     fontSize: FontSize.base,
     fontWeight: "600",
-    color: Colors.text2,
+    color: C.text2,
   },
   saveButton: {
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: Radius.lg,
     alignItems: "center",
-    backgroundColor: Colors.accent,
+    backgroundColor: C.accent,
   },
   saveButtonText: {
     fontSize: FontSize.base,
     fontWeight: "700",
-    color: Colors.bg,
+    color: C.bg,
   },
   deletingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -760,7 +798,7 @@ const styles = StyleSheet.create({
   deletingText: {
     fontSize: FontSize.lg,
     fontWeight: "700",
-    color: Colors.red,
+    color: C.red,
   },
   // Currency modal styles — now handled by SelectModal component
 });

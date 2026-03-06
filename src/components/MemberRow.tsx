@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Colors, FontSize, Radius, Spacing } from "../constants";
+import { FontSize, Radius, Spacing } from "../constants";
+import { useColors } from "../lib/useColors";
 import { formatCurrency } from "../lib/currency";
 import { t } from "../lib/i18n";
 import { useSettingsStore } from "../store/settingsStore";
@@ -16,13 +17,15 @@ interface MemberRowProps {
   isCurrentUser?: boolean;
 }
 
-export function MemberRow({
+export const MemberRow = React.memo(function MemberRow({
   member,
   rank,
   onPress,
   showRank = false,
   isCurrentUser = false,
 }: MemberRowProps) {
+  const C = useColors();
+  const styles = useMemo(() => createStyles(C), [C]);
   const user = member.user;
   const { settings } = useSettingsStore();
   const lang = settings.language || "es";
@@ -43,7 +46,7 @@ export function MemberRow({
         return <Ionicons name="trophy" size={20} color="#CD7F32" />;
       default:
         return (
-          <Text style={[styles.rank, { color: Colors.text3 }]}>{rank}</Text>
+          <Text style={[styles.rank, { color: C.text3 }]}>{rank}</Text>
         );
     }
   };
@@ -66,7 +69,7 @@ export function MemberRow({
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <Text
-            style={[styles.name, isCurrentUser && { color: Colors.accent2 }]}
+            style={[styles.name, isCurrentUser && { color: C.accent2 }]}
           >
             {isCurrentUser ? `${user.name} ${t("youSuffix", lang)}` : user.name}
           </Text>
@@ -103,10 +106,10 @@ export function MemberRow({
           style={[
             styles.amount,
             member.status === "on_track"
-              ? { color: Colors.green }
+              ? { color: C.green }
               : member.status === "at_risk"
-                ? { color: Colors.yellow }
-                : { color: Colors.red },
+                ? { color: C.yellow }
+                : { color: C.red },
           ]}
         >
           {formatCurrency(member.current_amount, settings.currency)}
@@ -122,16 +125,16 @@ export function MemberRow({
       </View>
     </TouchableOpacity>
   );
-}
+});
 
-const styles = StyleSheet.create({
+const createStyles = (C: any) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surface3,
+    borderBottomColor: C.surface3,
   },
   highlighted: {
     backgroundColor: "rgba(108,99,255,0.07)",
@@ -152,7 +155,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: FontSize.base,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
   },
   subRow: {
     flexDirection: "row",
@@ -175,11 +178,11 @@ const styles = StyleSheet.create({
   },
   goal: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
   },
   points: {
     fontSize: 10,
-    color: Colors.text3,
+    color: C.text3,
     marginTop: 2,
   },
   rank: {

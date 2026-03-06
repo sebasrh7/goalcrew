@@ -15,7 +15,7 @@ import {
 import { enUS, es as esLocale, fr } from "date-fns/locale";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Platform,
@@ -30,7 +30,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertModal } from "../../src/components/AlertModal";
 import { Button, Card } from "../../src/components/UI";
 import {
-  Colors,
   FontSize,
   GROUP_ICONS,
   Radius,
@@ -43,15 +42,18 @@ import {
   getPlaceholderAmount,
 } from "../../src/lib/currency";
 import { getFrequencyLabel, t } from "../../src/lib/i18n";
+import { useColors } from "../../src/lib/useColors";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { CreateGroupInput, DivisionType, FrequencyType } from "../../src/types";
 
 export default function CreateScreen() {
+  const C = useColors();
   const router = useRouter();
   const { createGroup, isLoading } = useGroupsStore();
   const { settings } = useSettingsStore();
   const lang = settings.language || "es";
+  const styles = useMemo(() => createStyles(C), [C]);
 
   const [name, setName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState(GROUP_ICONS[0]);
@@ -157,29 +159,32 @@ export default function CreateScreen() {
     return { days, periods, perPeriod };
   }, [goalAmount, deadline, frequency, customDays]);
 
+  const submittingRef = useRef(false);
   const handleCreate = async () => {
+    if (submittingRef.current) return;
     if (!name.trim()) {
       showAlert(t("nameRequired", lang), t("giveGoalName", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
     if (!goalAmount || parseFloat(goalAmount) <= 0) {
       showAlert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
     if (calc.days < 7) {
       showAlert(t("dateTooClose", lang), t("dateTooCloseMsg", lang), {
         icon: "calendar",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
 
+    submittingRef.current = true;
     try {
       const input: CreateGroupInput = {
         name: name.trim(),
@@ -198,10 +203,36 @@ export default function CreateScreen() {
       showAlert(
         t("error", lang),
         getErrorMessage(error) ?? t("couldNotCreateGoal", lang),
-        { icon: "alert-circle", iconColor: Colors.red },
+        { icon: "alert-circle", iconColor: C.red },
       );
+    } finally {
+      submittingRef.current = false;
     }
   };
+
+  const CalcItem = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
+    <View style={{ alignItems: "center", flex: 1 }}>
+      <Text style={[styles.calcValue, highlight && { color: C.accent2 }]}>
+        {value}
+      </Text>
+      <Text style={styles.calcLabel}>{label}</Text>
+    </View>
+  );
+
+  const SummaryRow = ({ icon, iconColor, label, value, highlight }: { icon: string; iconColor?: string; label: string; value: string | number; highlight?: boolean }) => (
+    <View style={styles.summaryRow}>
+      <Ionicons
+        name={icon as any}
+        size={16}
+        color={iconColor || C.text2}
+        style={styles.summaryIcon}
+      />
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryValue, highlight && { color: C.green }]}>
+        {value}
+      </Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -214,7 +245,7 @@ export default function CreateScreen() {
             <Ionicons
               name="flag"
               size={28}
-              color={Colors.accent2}
+              color={C.accent2}
               style={{ marginRight: 8 }}
             />
             <Text style={styles.title}>{t("newGoalCard", lang)}</Text>
@@ -229,7 +260,7 @@ export default function CreateScreen() {
             <TextInput
               style={styles.input}
               placeholder={t("goalNamePlaceholder", lang)}
-              placeholderTextColor={Colors.text3}
+              placeholderTextColor={C.text3}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -269,10 +300,10 @@ export default function CreateScreen() {
                 <TextInput
                   style={styles.amountInput}
                   placeholder={getPlaceholderAmount(settings.currency)}
-                  placeholderTextColor={Colors.text3}
+                  placeholderTextColor={C.text3}
                   value={goalAmount}
-                  onChangeText={setGoalAmount}
-                  keyboardType="numeric"
+                  onChangeText={(text) => setGoalAmount(text.replace(/[^0-9.]/g, ""))}
+                  keyboardType="decimal-pad"
                   maxLength={10}
                 />
               </View>
@@ -288,7 +319,7 @@ export default function CreateScreen() {
                 <Ionicons
                   name="calendar-outline"
                   size={16}
-                  color={Colors.accent2}
+                  color={C.accent2}
                 />
                 <Text style={styles.dateButtonText}>{deadlineFormatted}</Text>
               </TouchableOpacity>
@@ -335,7 +366,7 @@ export default function CreateScreen() {
                 <TextInput
                   style={styles.customDaysInput}
                   placeholder={t("customDaysPlaceholder", lang)}
-                  placeholderTextColor={Colors.text3}
+                  placeholderTextColor={C.text3}
                   value={customDays}
                   onChangeText={setCustomDays}
                   keyboardType="numeric"
@@ -481,7 +512,7 @@ export default function CreateScreen() {
                 )}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="chevron-back" size={24} color={Colors.text} />
+                <Ionicons name="chevron-back" size={24} color={C.text} />
               </TouchableOpacity>
               <Text style={styles.calendarMonthLabel}>
                 {format(calendarMonth, "MMMM yyyy", { locale: dateLocale })}
@@ -497,7 +528,7 @@ export default function CreateScreen() {
                 <Ionicons
                   name="chevron-forward"
                   size={24}
-                  color={Colors.text}
+                  color={C.text}
                 />
               </TouchableOpacity>
             </View>
@@ -537,7 +568,7 @@ export default function CreateScreen() {
                       <Text
                         style={[
                           styles.calendarDayText,
-                          disabled && { color: Colors.text3, opacity: 0.4 },
+                          disabled && { color: C.text3, opacity: 0.4 },
                           selected && styles.calendarDayTextSelected,
                         ]}
                       >
@@ -565,59 +596,11 @@ export default function CreateScreen() {
   );
 }
 
-function CalcItem({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <View style={{ alignItems: "center", flex: 1 }}>
-      <Text style={[styles.calcValue, highlight && { color: Colors.accent2 }]}>
-        {value}
-      </Text>
-      <Text style={styles.calcLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function SummaryRow({
-  icon,
-  iconColor,
-  label,
-  value,
-  highlight,
-}: {
-  icon: string;
-  iconColor?: string;
-  label: string;
-  value: string | number;
-  highlight?: boolean;
-}) {
-  return (
-    <View style={styles.summaryRow}>
-      <Ionicons
-        name={icon as any}
-        size={16}
-        color={iconColor || Colors.text2}
-        style={styles.summaryIcon}
-      />
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={[styles.summaryValue, highlight && { color: Colors.green }]}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+const createStyles = (C: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
   header: { padding: Spacing.xl, paddingBottom: 0 },
   backBtn: {
-    color: Colors.accent2,
+    color: C.accent2,
     fontWeight: "700",
     fontSize: FontSize.base,
     marginBottom: Spacing.lg,
@@ -630,55 +613,55 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.xxxl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     marginBottom: 4,
     letterSpacing: -0.5,
   },
-  subtitle: { fontSize: FontSize.base, color: Colors.text2 },
+  subtitle: { fontSize: FontSize.base, color: C.text2 },
   form: { padding: Spacing.xl, gap: Spacing.lg },
   field: { gap: Spacing.sm },
-  label: { fontSize: FontSize.sm, fontWeight: "700", color: Colors.text2 },
+  label: { fontSize: FontSize.sm, fontWeight: "700", color: C.text2 },
   input: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     paddingHorizontal: Spacing.md,
     paddingVertical: 13,
     fontSize: FontSize.md,
-    color: Colors.text,
+    color: C.text,
   },
   dateButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     paddingHorizontal: Spacing.md,
     paddingVertical: 13,
   },
   dateButtonText: {
     fontSize: FontSize.sm,
     fontWeight: "700",
-    color: Colors.text,
+    color: C.text,
   },
   row: { flexDirection: "row", gap: Spacing.md },
   amountWrap: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     paddingHorizontal: Spacing.md,
   },
   currencySymbol: {
     fontSize: FontSize.xl,
     fontWeight: "900",
-    color: Colors.text2,
+    color: C.text2,
     marginRight: 4,
   },
   amountInput: {
@@ -686,23 +669,23 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     fontSize: FontSize.xl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
   },
   emojiGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
   emojiBtn: {
     width: 48,
     height: 48,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 2,
     borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
-  emojiBtnActive: { borderColor: Colors.accent },
+  emojiBtnActive: { borderColor: C.accent },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     padding: 4,
   },
@@ -712,9 +695,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: Radius.sm,
   },
-  tabActive: { backgroundColor: Colors.surface },
-  tabText: { fontSize: FontSize.sm, fontWeight: "700", color: Colors.text2 },
-  tabTextActive: { color: Colors.text },
+  tabActive: { backgroundColor: C.surface },
+  tabText: { fontSize: FontSize.sm, fontWeight: "700", color: C.text2 },
+  tabTextActive: { color: C.text },
   freqGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -723,21 +706,21 @@ const styles = StyleSheet.create({
   freqChip: {
     paddingVertical: 9,
     paddingHorizontal: 16,
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1.5,
     borderColor: "transparent",
   },
   freqChipActive: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.accent,
+    backgroundColor: C.surface,
+    borderColor: C.accent,
   },
   freqChipText: {
     fontSize: FontSize.sm,
     fontWeight: "700",
-    color: Colors.text2,
+    color: C.text2,
   },
-  freqChipTextActive: { color: Colors.accent },
+  freqChipTextActive: { color: C.accent },
   customDaysRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -747,29 +730,29 @@ const styles = StyleSheet.create({
   customDaysLabel: {
     fontSize: FontSize.sm,
     fontWeight: "600",
-    color: Colors.text2,
+    color: C.text2,
   },
   customDaysInput: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.accent,
+    borderColor: C.accent,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     fontSize: FontSize.md,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
     width: 70,
     textAlign: "center",
   },
   customDaysSuffix: {
     fontSize: FontSize.sm,
     fontWeight: "600",
-    color: Colors.text2,
+    color: C.text2,
   },
   divisionHint: {
     fontSize: FontSize.xs,
-    color: Colors.text3,
+    color: C.text3,
     marginTop: Spacing.sm,
     lineHeight: 16,
   },
@@ -777,14 +760,14 @@ const styles = StyleSheet.create({
   calcTitle: {
     fontSize: FontSize.sm,
     fontWeight: "700",
-    color: Colors.accent2,
+    color: C.accent2,
     marginBottom: Spacing.md,
   },
   calcRow: { flexDirection: "row" },
-  calcValue: { fontSize: FontSize.xl, fontWeight: "900", color: Colors.text },
+  calcValue: { fontSize: FontSize.xl, fontWeight: "900", color: C.text },
   calcLabel: {
     fontSize: FontSize.xs,
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
     marginTop: 2,
   },
@@ -792,16 +775,16 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: FontSize.base,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
     marginBottom: Spacing.sm,
   },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   summaryIcon: { width: 24, alignItems: "center" },
-  summaryLabel: { flex: 1, fontSize: FontSize.base, color: Colors.text2 },
+  summaryLabel: { flex: 1, fontSize: FontSize.base, color: C.text2 },
   summaryValue: {
     fontSize: FontSize.base,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
   },
   // Calendar modal styles
   calendarOverlay: {
@@ -811,7 +794,7 @@ const styles = StyleSheet.create({
     alignItems: Platform.OS === "web" ? "center" : undefined,
   },
   calendarSheet: {
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
     ...(Platform.OS === "web"
@@ -837,7 +820,7 @@ const styles = StyleSheet.create({
   calendarHandle: {
     width: 40,
     height: 4,
-    backgroundColor: Colors.surface3,
+    backgroundColor: C.surface3,
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: Spacing.md,
@@ -851,7 +834,7 @@ const styles = StyleSheet.create({
   calendarMonthLabel: {
     fontSize: FontSize.lg,
     fontWeight: "800",
-    color: Colors.text,
+    color: C.text,
     textTransform: "capitalize",
   },
   calendarRow: {
@@ -863,7 +846,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: FontSize.xs,
     fontWeight: "700",
-    color: Colors.text2,
+    color: C.text2,
   },
   calendarGrid: {
     flexDirection: "row",
@@ -885,10 +868,10 @@ const styles = StyleSheet.create({
   calendarDayText: {
     fontSize: FontSize.base,
     fontWeight: "700",
-    color: Colors.text,
+    color: C.text,
   },
   calendarDaySelected: {
-    backgroundColor: Colors.accent,
+    backgroundColor: C.accent,
   },
   calendarDayTextSelected: {
     color: "#FFFFFF",

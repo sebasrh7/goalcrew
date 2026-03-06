@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Platform,
@@ -16,7 +16,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertModal } from "../../src/components/AlertModal";
 import { Button } from "../../src/components/UI";
 import {
-  Colors,
   FontSize,
   Radius,
   Spacing,
@@ -26,15 +25,18 @@ import {
 import { formatCurrency } from "../../src/lib/currency";
 import { t } from "../../src/lib/i18n";
 import { peekGroupByCode } from "../../src/lib/supabase";
+import { useColors } from "../../src/lib/useColors";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 
 export default function JoinGroupScreen() {
+  const C = useColors();
   const router = useRouter();
   const { code: codeParam } = useLocalSearchParams<{ code?: string }>();
   const { joinGroup, isLoading } = useGroupsStore();
   const { settings } = useSettingsStore();
   const lang = settings.language;
+  const styles = useMemo(() => createStyles(C), [C]);
   const [code, setCode] = useState("");
   const [customGoalStep, setCustomGoalStep] = useState(false);
   const [customGoalAmount, setCustomGoalAmount] = useState("");
@@ -98,12 +100,14 @@ export default function JoinGroupScreen() {
   const dismissAlert = () =>
     setAlertModal((prev) => ({ ...prev, visible: false }));
 
+  const submittingRef = useRef(false);
   const handleJoin = async () => {
+    if (submittingRef.current) return;
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 6) {
       showAlert(t("invalidCode", lang), t("enterFullCode", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       return;
     }
@@ -124,7 +128,7 @@ export default function JoinGroupScreen() {
       } catch {
         showAlert(t("error", lang), t("invalidCode", lang), {
           icon: "alert-circle",
-          iconColor: Colors.red,
+          iconColor: C.red,
         });
         setIsChecking(false);
         return;
@@ -132,6 +136,7 @@ export default function JoinGroupScreen() {
       setIsChecking(false);
     }
 
+    submittingRef.current = true;
     try {
       const individualGoal = customGoalStep
         ? parseFloat(customGoalAmount) || undefined
@@ -139,7 +144,7 @@ export default function JoinGroupScreen() {
       await joinGroup(trimmed, individualGoal);
       showAlert(t("welcome", lang), t("joinedGroup", lang), {
         icon: "checkmark-circle",
-        iconColor: Colors.accent,
+        iconColor: C.accent,
         buttons: [
           {
             text: t("letsGo", lang),
@@ -160,8 +165,10 @@ export default function JoinGroupScreen() {
             : (errorMsg ?? t("couldNotJoin", lang));
       showAlert(t("error", lang), msg, {
         icon: "alert-circle",
-        iconColor: Colors.red,
+        iconColor: C.red,
       });
+    } finally {
+      submittingRef.current = false;
     }
   };
 
@@ -176,7 +183,7 @@ export default function JoinGroupScreen() {
     } else {
       showAlert(t("invalidCode", lang), t("qrInvalidCode", lang), {
         icon: "alert-circle",
-        iconColor: Colors.yellow,
+        iconColor: C.yellow,
       });
       // Allow re-scan after 2 seconds
       setTimeout(() => setScanned(false), 2000);
@@ -187,7 +194,7 @@ export default function JoinGroupScreen() {
     if (Platform.OS === "web") {
       showAlert(t("scanQR", lang), t("qrNotAvailableWeb", lang), {
         icon: "information-circle",
-        iconColor: Colors.accent,
+        iconColor: C.accent,
       });
       return;
     }
@@ -199,7 +206,7 @@ export default function JoinGroupScreen() {
           t("cameraPermissionDesc", lang),
           {
             icon: "camera-outline",
-            iconColor: Colors.accent2,
+            iconColor: C.accent2,
           },
         );
         return;
@@ -220,7 +227,7 @@ export default function JoinGroupScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={["#1a1555", Colors.bg]}
+        colors={C.gradientHero as any}
         style={StyleSheet.absoluteFill}
       />
 
@@ -233,7 +240,7 @@ export default function JoinGroupScreen() {
         </TouchableOpacity>
 
         <View style={styles.iconContainer}>
-          <Ionicons name="link" size={48} color={Colors.accent2} />
+          <Ionicons name="link" size={48} color={C.accent2} />
         </View>
         <Text style={styles.title}>{t("joinGroup", lang)}</Text>
         <Text style={styles.subtitle}>{t("askForCode", lang)}</Text>
@@ -243,7 +250,7 @@ export default function JoinGroupScreen() {
           <TextInput
             style={styles.codeInput}
             placeholder="CANC25XK"
-            placeholderTextColor={Colors.text3}
+            placeholderTextColor={C.text3}
             value={code}
             onChangeText={formatCode}
             autoCapitalize="characters"
@@ -271,7 +278,7 @@ export default function JoinGroupScreen() {
             <TextInput
               style={styles.codeInput}
               placeholder={String(groupInfo.goal_amount)}
-              placeholderTextColor={Colors.text3}
+              placeholderTextColor={C.text3}
               value={customGoalAmount}
               onChangeText={setCustomGoalAmount}
               keyboardType="numeric"
@@ -299,7 +306,7 @@ export default function JoinGroupScreen() {
           <Ionicons
             name="qr-code-outline"
             size={22}
-            color={Colors.accent2}
+            color={C.accent2}
             style={{ marginRight: Spacing.sm }}
           />
           <Text style={styles.scanBtnText}>{t("scanQR", lang)}</Text>
@@ -361,12 +368,12 @@ export default function JoinGroupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+const createStyles = (C: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
   content: { flex: 1, padding: Spacing.xl, paddingTop: Spacing.lg },
   backBtn: { marginBottom: Spacing.xxl },
   backText: {
-    color: Colors.accent2,
+    color: C.accent2,
     fontWeight: "700",
     fontSize: FontSize.base,
   },
@@ -377,65 +384,65 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.xxxl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     textAlign: "center",
     marginBottom: Spacing.sm,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: FontSize.base,
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
     lineHeight: 22,
     marginBottom: Spacing.xxl,
   },
   inputCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: C.surface,
     borderRadius: Radius.lg,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
   },
   label: {
     fontSize: FontSize.sm,
     fontWeight: "700",
-    color: Colors.text2,
+    color: C.text2,
     textAlign: "center",
   },
   codeInput: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 2,
-    borderColor: Colors.accent,
+    borderColor: C.accent,
     paddingVertical: 14,
     fontSize: FontSize.xxl,
     fontWeight: "900",
-    color: Colors.text,
+    color: C.text,
     letterSpacing: 4,
   },
-  codeHint: { fontSize: FontSize.xs, color: Colors.text3, textAlign: "center" },
+  codeHint: { fontSize: FontSize.xs, color: C.text3, textAlign: "center" },
   or: {
     textAlign: "center",
-    color: Colors.text3,
+    color: C.text3,
     fontSize: FontSize.base,
     marginVertical: Spacing.lg,
   },
   scanBtn: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: C.surface2,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Colors.surface3,
+    borderColor: C.surface3,
     flexDirection: "row",
     justifyContent: "center",
   },
   scanBtnText: {
     fontSize: FontSize.base,
     fontWeight: "700",
-    color: Colors.text,
+    color: C.text,
   },
   scannerContainer: {
     flex: 1,
@@ -476,7 +483,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 40,
     height: 40,
-    borderColor: Colors.accent,
+    borderColor: C.accent,
     borderWidth: 3,
   },
   cornerTL: {

@@ -2,6 +2,7 @@ import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
+import { Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
@@ -21,11 +22,19 @@ export default function RootLayout() {
   const { settings } = useSettingsStore();
   const router = useRouter();
   const notifCleanup = useRef<(() => void) | null>(null);
+  const systemScheme = useColorScheme();
 
   useEffect(() => {
     // Initialize Supabase auth listener
     const cleanup = initAuthListener();
     return cleanup;
+  }, []);
+
+  // Register service worker for offline support on web
+  useEffect(() => {
+    if (Platform.OS === "web" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -68,9 +77,9 @@ export default function RootLayout() {
     };
   }, [
     isAuthenticated,
-    settings.push_notifications,
-    settings.contribution_reminders,
-    settings.language,
+    settings?.push_notifications,
+    settings?.contribution_reminders,
+    settings?.language,
   ]);
 
   useEffect(() => {
@@ -89,8 +98,10 @@ export default function RootLayout() {
 
   if (isLoading) return null;
 
-  // App always uses dark theme for now
-  const statusBarStyle = "light";
+  // Determine status bar style from theme
+  const themePref = settings?.theme ?? "dark";
+  const isDark = themePref === "dark" || (themePref === "auto" && systemScheme === "dark");
+  const statusBarStyle = isDark ? "light" : "dark";
 
   return (
     <ErrorBoundary>

@@ -1,4 +1,14 @@
-import { AchievementConfig, AchievementType } from "../types";
+import { AchievementType } from "../types";
+
+// Visual config for achievements — text comes from i18n via getAchievementText()
+interface AchievementVisualConfig {
+  type: AchievementType;
+  icon: string;
+  color: string;
+}
+
+// Sentinel value for "no period completed yet"
+export const INITIAL_PERIOD = -1;
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 export const Colors = {
@@ -63,70 +73,17 @@ export const FontSize = {
 } as const;
 
 // ─── Achievements ────────────────────────────────────────────────────────────
-export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
-  first_contribution: {
-    type: "first_contribution",
-    icon: "flash",
-    color: "#FBBF24",
-    title: "Inicio rápido",
-    description: "Registraste tu primer aporte",
-  },
-  streak_3: {
-    type: "streak_3",
-    icon: "flame",
-    color: "#FF6B35",
-    title: "3 en raya",
-    description: "3 días consecutivos ahorrando",
-  },
-  streak_7: {
-    type: "streak_7",
-    icon: "flame",
-    color: "#FF6B35",
-    title: "Semana de fuego",
-    description: "7 días consecutivos ahorrando",
-  },
-  streak_30: {
-    type: "streak_30",
-    icon: "flame",
-    color: "#DC2626",
-    title: "Mes imparable",
-    description: "30 días consecutivos ahorrando",
-  },
-  first_50_percent: {
-    type: "first_50_percent",
-    icon: "rocket",
-    color: "#6C63FF",
-    title: "Primero al 50%",
-    description: "Fuiste el primero en llegar al 50%",
-  },
-  goal_completed: {
-    type: "goal_completed",
-    icon: "checkmark-circle",
-    color: "#22D3A0",
-    title: "Meta cumplida",
-    description: "¡Llegaste al 100% de tu meta!",
-  },
-  most_consistent: {
-    type: "most_consistent",
-    icon: "trophy",
-    color: "#FBBF24",
-    title: "Más constante",
-    description: "El miembro más consistente del grupo",
-  },
-  early_bird: {
-    type: "early_bird",
-    icon: "sunny",
-    color: "#F97316",
-    title: "Early bird",
-    description: "Completaste la meta antes de tiempo",
-  },
-  big_saver: {
-    type: "big_saver",
-    icon: "diamond",
-    color: "#8B5CF6",
-    title: "Gran aportador",
-    description: "Registraste un aporte mayor a $100",
-  },
+// Visual config only — use getAchievementText() from i18n for localized title/description
+export const ACHIEVEMENTS: Record<AchievementType, AchievementVisualConfig> = {
+  first_contribution: { type: "first_contribution", icon: "flash", color: "#FBBF24" },
+  streak_3: { type: "streak_3", icon: "flame", color: "#FF6B35" },
+  streak_7: { type: "streak_7", icon: "flame", color: "#FF6B35" },
+  streak_30: { type: "streak_30", icon: "flame", color: "#DC2626" },
+  first_50_percent: { type: "first_50_percent", icon: "rocket", color: "#6C63FF" },
+  goal_completed: { type: "goal_completed", icon: "checkmark-circle", color: "#22D3A0" },
+  most_consistent: { type: "most_consistent", icon: "trophy", color: "#FBBF24" },
+  early_bird: { type: "early_bird", icon: "sunny", color: "#F97316" },
+  big_saver: { type: "big_saver", icon: "diamond", color: "#8B5CF6" },
 };
 
 // ─── Points System ───────────────────────────────────────────────────────────

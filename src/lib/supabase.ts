@@ -110,11 +110,12 @@ export async function addContribution(
   groupId: string,
   amount: number,
   note?: string,
+  proofUrl?: string,
 ) {
   // Insert contribution
   const { data, error } = await supabase
     .from("contributions")
-    .insert({ user_id: userId, group_id: groupId, amount, note })
+    .insert({ user_id: userId, group_id: groupId, amount, note, proof_url: proofUrl ?? null })
     .select()
     .single();
   if (error) throw error;
@@ -140,13 +141,13 @@ export async function addContribution(
   return data;
 }
 
-export async function fetchGroupContributions(groupId: string, limit = 100) {
+export async function fetchGroupContributions(groupId: string, limit = 50, offset = 0) {
   const { data, error } = await supabase
     .from("contributions")
     .select(`*, user:users(*)`)
     .eq("group_id", groupId)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return data;
 }
@@ -210,6 +211,117 @@ export function subscribeToGroup(
     )
     .subscribe();
 }
+// ─── Group Status Management ─────────────────────────────────────────────
+
+export async function completeGroupApi(groupId: string) {
+  const { error } = await supabase.rpc("complete_group", { p_group_id: groupId });
+  if (error) throw error;
+}
+
+export async function archiveGroupApi(groupId: string) {
+  const { error } = await supabase.rpc("archive_group", { p_group_id: groupId });
+  if (error) throw error;
+}
+
+export async function reactivateGroupApi(groupId: string) {
+  const { error } = await supabase.rpc("reactivate_group", { p_group_id: groupId });
+  if (error) throw error;
+}
+
+// ─── Member Management ──────────────────────────────────────────────────
+
+export async function removeMemberApi(groupId: string, userId: string) {
+  const { error } = await supabase.rpc("remove_member", {
+    p_group_id: groupId,
+    p_user_id: userId,
+  });
+  if (error) throw error;
+}
+
+// ─── Contribution Proofs ────────────────────────────────────────────────
+
+export async function uploadContributionProof(
+  userId: string,
+  file: { uri: string; type: string; name: string },
+): Promise<string> {
+  const path = `${userId}/${Date.now()}-${file.name}`;
+  const response = await fetch(file.uri);
+  const blob = await response.blob();
+
+  const { error } = await supabase.storage
+    .from("contribution-proofs")
+    .upload(path, blob, { contentType: file.type });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("contribution-proofs").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ─── Group Messages (Chat) ──────────────────────────────────────────────
+
+export async function fetchGroupMessages(groupId: string, limit = 50, offset = 0) {
+  const { data, error } = await supabase
+    .from("group_messages")
+    .select("*, user:users(*)")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return data;
+}
+
+export async function sendGroupMessage(groupId: string, message: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("group_messages")
+    .insert({ group_id: groupId, user_id: user.id, message })
+    .select("*, user:users(*)")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteGroupMessage(messageId: string) {
+  const { error } = await supabase
+    .from("group_messages")
+    .delete()
+    .eq("id", messageId);
+  if (error) throw error;
+}
+
+export function subscribeToGroupMessages(
+  groupId: string,
+  onMessage: (payload: { new: Record<string, unknown> }) => void,
+) {
+  return supabase
+    .channel(`group-messages:${groupId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "group_messages",
+        filter: `group_id=eq.${groupId}`,
+      },
+      onMessage,
+    )
+    .subscribe();
+}
+
+// ─── Data Export ─────────────────────────────────────────────────────────
+
+export async function fetchAllGroupContributions(groupId: string) {
+  const { data, error } = await supabase
+    .from("contributions")
+    .select("*, user:users(name, email)")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
 // ─── Group Management ────────────────────────────────────────────────────
 
 export async function leaveGroupApi(groupId: string) {

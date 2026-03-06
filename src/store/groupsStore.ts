@@ -2,11 +2,15 @@ import { differenceInDays, parseISO } from "date-fns";
 import { create } from "zustand";
 import { getMemberStatus } from "../constants";
 import {
+  archiveGroupApi,
+  completeGroupApi,
   createGroup as apiCreateGroup,
   deleteGroupApi,
   fetchGroupWithMembers,
   joinGroupByCode,
   leaveGroupApi,
+  reactivateGroupApi,
+  removeMemberApi,
   supabase,
   updateGroupApi,
 } from "../lib/supabase";
@@ -202,6 +206,32 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     });
     await get().fetchGroup(groupId);
     await get().fetchGroups();
+  },
+
+  completeGroup: async (groupId: string) => {
+    await completeGroupApi(groupId);
+    await get().fetchGroup(groupId);
+    await get().fetchGroups();
+  },
+
+  archiveGroup: async (groupId: string) => {
+    await archiveGroupApi(groupId);
+    set((state) => ({
+      groups: state.groups.filter((g) => g.id !== groupId),
+      currentGroup:
+        state.currentGroup?.id === groupId ? null : state.currentGroup,
+    }));
+  },
+
+  reactivateGroup: async (groupId: string) => {
+    await reactivateGroupApi(groupId);
+    await get().fetchGroup(groupId);
+    await get().fetchGroups();
+  },
+
+  removeMember: async (groupId: string, userId: string) => {
+    await removeMemberApi(groupId, userId);
+    await get().fetchGroup(groupId);
   },
 }));
 
