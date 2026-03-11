@@ -14,6 +14,10 @@
         "buildType": "apk"
       },
       "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ezoibyfnnsvbqotnvpdj.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6b2lieWZubnN2YnFvdG52cGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDM2NjcsImV4cCI6MjA4NjkxOTY2N30.MoCwqLioeJhN1ZvJA0jBYgXAQOZTTqKmVMLRRuh5ezU",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "803759521905-srcsssv4gji0c3g92pter59ic5ukp5j3.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "803759521905-nhf663l36l8gsirbb65rbrmpiqsvekhp.apps.googleusercontent.com",
         "EXPO_PUBLIC_APP_NAME": "GoalCrew",
         "EXPO_PUBLIC_WEB_APP_URL": "https://goalcrew.vercel.app"
       }
@@ -21,6 +25,10 @@
     "production": {
       "autoIncrement": true,
       "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ezoibyfnnsvbqotnvpdj.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6b2lieWZubnN2YnFvdG52cGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDM2NjcsImV4cCI6MjA4NjkxOTY2N30.MoCwqLioeJhN1ZvJA0jBYgXAQOZTTqKmVMLRRuh5ezU",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "803759521905-srcsssv4gji0c3g92pter59ic5ukp5j3.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "803759521905-nhf663l36l8gsirbb65rbrmpiqsvekhp.apps.googleusercontent.com",
         "EXPO_PUBLIC_APP_NAME": "GoalCrew",
         "EXPO_PUBLIC_WEB_APP_URL": "https://goalcrew.vercel.app"
       }

@@ -1640,6 +1640,47 @@ export const translations: Translations = {
     en: "Android, Web & iPhone",
     fr: "Android, Web & iPhone",
   },
+  // How it works
+  landingHowTag: {
+    es: "Cómo funciona",
+    en: "How it works",
+    fr: "Comment ça marche",
+  },
+  landingHowTitle: {
+    es: "Empieza en menos de un minuto",
+    en: "Get started in under a minute",
+    fr: "Commencez en moins d'une minute",
+  },
+  landingHowStep1Title: {
+    es: "Crea un grupo",
+    en: "Create a group",
+    fr: "Créez un groupe",
+  },
+  landingHowStep1Desc: {
+    es: "Define la meta, el plazo y cuánto aportará cada quien.",
+    en: "Set the goal, deadline and how much each member will contribute.",
+    fr: "Définissez l'objectif, le délai et la contribution de chacun.",
+  },
+  landingHowStep2Title: {
+    es: "Invita a tu crew",
+    en: "Invite your crew",
+    fr: "Invitez votre équipe",
+  },
+  landingHowStep2Desc: {
+    es: "Comparte el código QR o el enlace de invitación.",
+    en: "Share the QR code or invitation link.",
+    fr: "Partagez le code QR ou le lien d'invitation.",
+  },
+  landingHowStep3Title: {
+    es: "Ahorren juntos",
+    en: "Save together",
+    fr: "Épargnez ensemble",
+  },
+  landingHowStep3Desc: {
+    es: "Registra aportes, ve el progreso en tiempo real y celebren logros.",
+    en: "Log contributions, track progress in real time and celebrate milestones.",
+    fr: "Enregistrez les contributions, suivez les progrès en temps réel et célébrez.",
+  },
   landingFeaturesTag: {
     es: "Funcionalidades",
     en: "Features",

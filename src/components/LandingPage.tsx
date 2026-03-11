@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -76,8 +77,13 @@ export function LandingPage({ onOpenApp }: Props) {
 
   // Scroll-triggered sections
   const previewAnim = useScrollFadeIn();
+  const howAnim = useScrollFadeIn();
   const featuresAnim = useScrollFadeIn();
   const downloadAnim = useScrollFadeIn();
+
+  // Animated mockup progress bars
+  const mockupProgress1 = useRef(new Animated.Value(0)).current;
+  const mockupProgress2 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -92,6 +98,51 @@ export function LandingPage({ onOpenApp }: Props) {
         useNativeDriver: false,
       }),
     ]).start();
+
+    // Animate mockup progress bars after a delay
+    setTimeout(() => {
+      Animated.stagger(300, [
+        Animated.timing(mockupProgress1, {
+          toValue: 65,
+          duration: 1200,
+          useNativeDriver: false,
+        }),
+        Animated.timing(mockupProgress2, {
+          toValue: 42,
+          duration: 1000,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }, 800);
+  }, []);
+
+  // Inject SEO meta tags on web
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const metaTags: Record<string, string> = {
+      description: "GoalCrew — Save money together with your friends. Create groups, track progress in real time, and reach financial goals as a team.",
+      "og:title": "GoalCrew — Group Savings Made Simple",
+      "og:description": "Create savings groups, invite friends, track progress and celebrate milestones together.",
+      "og:type": "website",
+      "og:url": "https://goalcrew.vercel.app",
+      "og:image": "https://goalcrew.vercel.app/assets/icon.png",
+      "twitter:card": "summary",
+      "twitter:title": "GoalCrew — Group Savings Made Simple",
+      "twitter:description": "Save money together with friends. Track progress in real time.",
+    };
+    const created: HTMLMetaElement[] = [];
+    for (const [key, value] of Object.entries(metaTags)) {
+      const attr = key.startsWith("og:") || key.startsWith("twitter:") ? "property" : "name";
+      let el = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+        created.push(el);
+      }
+      el.setAttribute("content", value);
+    }
+    return () => { created.forEach((el) => el.remove()); };
   }, []);
 
   const handleLanguageChange = (newLang: Language) => {
@@ -110,6 +161,9 @@ export function LandingPage({ onOpenApp }: Props) {
       if (sectionPositions.current.preview && triggerPoint >= sectionPositions.current.preview) {
         previewAnim.trigger();
       }
+      if (sectionPositions.current.how && triggerPoint >= sectionPositions.current.how) {
+        howAnim.trigger();
+      }
       if (sectionPositions.current.features && triggerPoint >= sectionPositions.current.features) {
         featuresAnim.trigger();
       }
@@ -117,7 +171,7 @@ export function LandingPage({ onOpenApp }: Props) {
         downloadAnim.trigger();
       }
     },
-    [previewAnim, featuresAnim, downloadAnim],
+    [previewAnim, howAnim, featuresAnim, downloadAnim],
   );
 
   const featureItems = [
@@ -168,9 +222,9 @@ export function LandingPage({ onOpenApp }: Props) {
       >
         <View style={styles.navBrand}>
           <View style={styles.navLogoCircle}>
-            <Ionicons name="rocket" size={18} color="#FFFFFF" />
+            <Ionicons name="rocket" size={isDesktop ? 18 : 14} color="#FFFFFF" />
           </View>
-          <Text style={styles.navTitle}>GoalCrew</Text>
+          {isDesktop && <Text style={styles.navTitle}>GoalCrew</Text>}
         </View>
 
         <View style={styles.navRight}>
@@ -185,6 +239,8 @@ export function LandingPage({ onOpenApp }: Props) {
                 ]}
                 onPress={() => handleLanguageChange(l.code)}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Language: ${l.label}`}
               >
                 <Text
                   style={[
@@ -202,6 +258,8 @@ export function LandingPage({ onOpenApp }: Props) {
             style={styles.navCta}
             onPress={onOpenApp}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
           >
             <Text style={styles.navCtaText}>{t("landingSignIn", lang)}</Text>
           </TouchableOpacity>
@@ -251,6 +309,8 @@ export function LandingPage({ onOpenApp }: Props) {
           style={styles.primaryBtn}
           onPress={onOpenApp}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Get started"
         >
           <LinearGradient
             colors={["#6c63ff", "#a78bfa"]}
@@ -308,6 +368,8 @@ export function LandingPage({ onOpenApp }: Props) {
           },
         ]}
       >
+        {/* Glow behind mockup */}
+        <View style={styles.mockupGlow} />
         <View style={styles.mockupContainer}>
           <LinearGradient
             colors={["#1a1555", "#0b0f1a"]}
@@ -353,12 +415,24 @@ export function LandingPage({ onOpenApp }: Props) {
                 </Text>
               </View>
               <View style={styles.mockupProgress}>
-                <LinearGradient
-                  colors={["#6c63ff", "#a78bfa"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.mockupProgressBar, { width: "65%" }]}
-                />
+                <Animated.View
+                  style={[
+                    styles.mockupProgressBar,
+                    {
+                      width: mockupProgress1.interpolate({
+                        inputRange: [0, 65],
+                        outputRange: ["0%", "65%"],
+                      }),
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={["#6c63ff", "#a78bfa"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </Animated.View>
               </View>
               <View style={styles.mockupCardFooter}>
                 <Text style={styles.mockupCardAmount}>$2,600</Text>
@@ -387,12 +461,24 @@ export function LandingPage({ onOpenApp }: Props) {
                 </Text>
               </View>
               <View style={styles.mockupProgress}>
-                <LinearGradient
-                  colors={["#22d3a0", "#059669"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.mockupProgressBar, { width: "42%" }]}
-                />
+                <Animated.View
+                  style={[
+                    styles.mockupProgressBar,
+                    {
+                      width: mockupProgress2.interpolate({
+                        inputRange: [0, 42],
+                        outputRange: ["0%", "42%"],
+                      }),
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={["#22d3a0", "#059669"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </Animated.View>
               </View>
               <View style={styles.mockupCardFooter}>
                 <Text style={styles.mockupCardAmount}>$4,200</Text>
@@ -414,6 +500,78 @@ export function LandingPage({ onOpenApp }: Props) {
               </View>
             </View>
           </LinearGradient>
+        </View>
+      </Animated.View>
+
+      {/* ─── How it works ────────────────────────────────────────────── */}
+      <Animated.View
+        onLayout={(e) => {
+          sectionPositions.current.how = e.nativeEvent.layout.y;
+        }}
+        style={[
+          styles.howSection,
+          {
+            opacity: howAnim.opacity,
+            transform: [{ translateY: howAnim.translateY }],
+            paddingHorizontal: containerPadding,
+            maxWidth: maxContentWidth,
+          },
+        ]}
+      >
+        <Text style={styles.sectionTag}>{t("landingHowTag", lang)}</Text>
+        <Text
+          style={[
+            styles.sectionTitle,
+            isDesktop && { fontSize: 36, lineHeight: 44 },
+          ]}
+        >
+          {t("landingHowTitle", lang)}
+        </Text>
+
+        <View
+          style={[
+            styles.stepsContainer,
+            isDesktop && { flexDirection: "row", gap: 24 },
+          ]}
+        >
+          {[
+            {
+              num: "1",
+              icon: "add-circle" as const,
+              title: t("landingHowStep1Title", lang),
+              desc: t("landingHowStep1Desc", lang),
+              gradient: C.gradientPrimary,
+            },
+            {
+              num: "2",
+              icon: "qr-code" as const,
+              title: t("landingHowStep2Title", lang),
+              desc: t("landingHowStep2Desc", lang),
+              gradient: C.gradientSuccess,
+            },
+            {
+              num: "3",
+              icon: "rocket" as const,
+              title: t("landingHowStep3Title", lang),
+              desc: t("landingHowStep3Desc", lang),
+              gradient: C.gradientWarning,
+            },
+          ].map((step, i) => (
+            <View key={i} style={[styles.stepCard, isDesktop && { flex: 1 }]}>
+              <LinearGradient
+                colors={[...step.gradient]}
+                style={styles.stepNumber}
+              >
+                <Text style={styles.stepNumberText}>{step.num}</Text>
+              </LinearGradient>
+              {!isDesktop && i < 2 && (
+                <View style={styles.stepConnector} />
+              )}
+              <Ionicons name={step.icon} size={28} color={C.accent2} style={{ marginTop: 12 }} />
+              <Text style={styles.stepTitle}>{step.title}</Text>
+              <Text style={styles.stepDesc}>{step.desc}</Text>
+            </View>
+          ))}
         </View>
       </Animated.View>
 
@@ -609,6 +767,8 @@ const createStyles = (C: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+    // @ts-ignore — web-only: prevent horizontal overflow
+    overflowX: "hidden",
   },
 
   // Navbar
@@ -627,9 +787,9 @@ const createStyles = (C: any) => StyleSheet.create({
     gap: 10,
   },
   navLogoCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: C.accent,
     alignItems: "center",
     justifyContent: "center",
@@ -643,7 +803,8 @@ const createStyles = (C: any) => StyleSheet.create({
   navRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+    flexShrink: 1,
   },
   langSelector: {
     flexDirection: "row",
@@ -654,8 +815,8 @@ const createStyles = (C: any) => StyleSheet.create({
     overflow: "hidden",
   },
   langBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   langBtnActive: {
     backgroundColor: C.accent,
@@ -671,13 +832,13 @@ const createStyles = (C: any) => StyleSheet.create({
   navCta: {
     backgroundColor: C.surface2,
     borderRadius: Radius.sm,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: C.surface3,
   },
   navCtaText: {
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
     fontWeight: "700",
     color: C.text,
   },
@@ -776,6 +937,16 @@ const createStyles = (C: any) => StyleSheet.create({
     alignItems: "center",
     paddingVertical: 20,
   },
+  mockupGlow: {
+    position: "absolute",
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: "rgba(108,99,255,0.12)",
+    // @ts-ignore — web-only blur
+    filter: "blur(80px)",
+    top: "10%",
+  },
   mockupContainer: {
     width: 280,
     borderRadius: 28,
@@ -854,6 +1025,7 @@ const createStyles = (C: any) => StyleSheet.create({
   mockupProgressBar: {
     height: "100%",
     borderRadius: 3,
+    overflow: "hidden",
   },
   mockupCardFooter: {
     flexDirection: "row",
@@ -896,6 +1068,53 @@ const createStyles = (C: any) => StyleSheet.create({
     backgroundColor: C.accent,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  // How it works
+  howSection: {
+    width: "100%",
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  stepsContainer: {
+    gap: 16,
+  },
+  stepCard: {
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 16,
+  },
+  stepNumber: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNumberText: {
+    fontSize: FontSize.md,
+    fontWeight: "900",
+    color: "#FFF",
+  },
+  stepConnector: {
+    width: 2,
+    height: 24,
+    backgroundColor: C.surface3,
+    marginVertical: -4,
+  },
+  stepTitle: {
+    fontSize: FontSize.md,
+    fontWeight: "800",
+    color: C.text,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  stepDesc: {
+    fontSize: FontSize.sm,
+    color: C.text2,
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 280,
   },
 
   // Features
