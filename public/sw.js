@@ -27,8 +27,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests and Supabase API calls
+  // Skip non-GET, non-http(s), and Supabase API calls
   if (event.request.method !== "GET") return;
+  if (!url.protocol.startsWith("http")) return;
   if (url.hostname.includes("supabase")) return;
 
   // Cache-first for static assets (JS, CSS, images, fonts)
