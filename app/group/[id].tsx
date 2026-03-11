@@ -33,6 +33,7 @@ import { AchievementModal } from "../../src/components/AchievementModal";
 import { AlertModal } from "../../src/components/AlertModal";
 import { ContributionCalendar } from "../../src/components/ContributionCalendar";
 import { GroupChat } from "../../src/components/GroupChat";
+import { GroupExpenses } from "../../src/components/GroupExpenses";
 import { GroupStats } from "../../src/components/GroupStats";
 import { InviteQRModal } from "../../src/components/InviteQRModal";
 import { MemberRow } from "../../src/components/MemberRow";
@@ -52,7 +53,7 @@ import {
   getQuickAmounts,
 } from "../../src/lib/currency";
 import { generateCSV, shareCSV } from "../../src/lib/export";
-import { notificationAsync } from "../../src/lib/haptics";
+import { impactAsync, notificationAsync } from "../../src/lib/haptics";
 import { getFrequencyPeriodLabel, t } from "../../src/lib/i18n";
 import {
   fetchAllGroupContributions,
@@ -65,7 +66,7 @@ import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { AchievementType } from "../../src/types";
 
-type TabType = "members" | "ranking" | "history" | "calendar" | "chat" | "stats";
+type TabType = "members" | "ranking" | "history" | "calendar" | "chat" | "expenses" | "stats";
 
 export default function GroupScreen() {
   const C = useColors();
@@ -111,6 +112,9 @@ export default function GroupScreen() {
   const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
 
   const [proofImage, setProofImage] = useState<string | null>(null);
+  const [viewingProofUrl, setViewingProofUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
   const submittingRef = useRef(false);
 
   // Clear contribution fields when modal closes
@@ -183,8 +187,9 @@ export default function GroupScreen() {
 
   useEffect(() => {
     if (id) {
-      fetchGroup(id);
-      fetchContributions(id);
+      setLoadError(false);
+      fetchGroup(id).catch(() => setLoadError(true));
+      fetchContributions(id).catch(() => {});
     }
   }, [id]);
 
@@ -230,11 +235,13 @@ export default function GroupScreen() {
     try {
       let proofUrl: string | undefined;
       if (proofImage) {
+        setUploadingProof(true);
         proofUrl = await uploadContributionProof(user.id, {
           uri: proofImage,
           type: "image/jpeg",
           name: `proof_${Date.now()}.jpg`,
         });
+        setUploadingProof(false);
       }
       await addContribution(id!, amount, contribNote || undefined, proofUrl);
       closeContribModal();
@@ -517,12 +524,20 @@ export default function GroupScreen() {
       });
       return;
     }
+    const goalAmount = parseFloat(editGroupGoal);
+    if (!goalAmount || goalAmount <= 0) {
+      showAlert(t("invalidAmount", lang), t("enterGoalGreaterZero", lang), {
+        icon: "alert-circle",
+        iconColor: C.yellow,
+      });
+      return;
+    }
     setIsUpdatingGroup(true);
     try {
       await updateGroup(id!, {
         name: editGroupName.trim(),
         emoji: editGroupEmoji.name,
-        goal_amount: parseFloat(editGroupGoal) || currentGroup!.goal_amount,
+        goal_amount: goalAmount,
       });
       setShowEditGroupModal(false);
       notificationAsync("Success");
@@ -581,6 +596,13 @@ export default function GroupScreen() {
     const amount = parseFloat(editContribAmount);
     if (!amount || amount <= 0) {
       showAlert(t("invalidAmount", lang), t("enterAmountGreaterZero", lang), {
+        icon: "alert-circle",
+        iconColor: C.yellow,
+      });
+      return;
+    }
+    if (amount > 999_999_999) {
+      showAlert(t("invalidAmount", lang), t("amountTooLarge", lang), {
         icon: "alert-circle",
         iconColor: C.yellow,
       });
@@ -647,12 +669,33 @@ export default function GroupScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: Spacing.xl }}
         >
-          <ActivityIndicator size="large" color={C.accent2} />
-          <Text style={{ color: C.text2, marginTop: Spacing.md }}>
-            {t("loadingGroup", lang)}
-          </Text>
+          {loadError ? (
+            <>
+              <Ionicons name="cloud-offline-outline" size={48} color={C.text3} />
+              <Text style={{ color: C.text2, marginTop: Spacing.md, textAlign: "center" }}>
+                {t("errorLoadingGroup", lang)}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setLoadError(false);
+                  fetchGroup(id!).catch(() => setLoadError(true));
+                  fetchContributions(id!);
+                }}
+                style={{ marginTop: Spacing.lg, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl, backgroundColor: C.accent, borderRadius: Radius.md }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>{t("retry", lang)}</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={C.accent2} />
+              <Text style={{ color: C.text2, marginTop: Spacing.md }}>
+                {t("loadingGroup", lang)}
+              </Text>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -714,7 +757,7 @@ export default function GroupScreen() {
                   );
                 })()}
               </View>
-              <Text style={styles.groupName}>{currentGroup.name}</Text>
+              <Text style={styles.groupName} numberOfLines={2}>{currentGroup.name}</Text>
               <View style={styles.headerPills}>
                 <View style={styles.pill}>
                   <View style={styles.pillContent}>
@@ -729,14 +772,14 @@ export default function GroupScreen() {
                   </View>
                 </View>
                 {myMember && <StatusPill status={myMember.status} />}
-                <View style={styles.pill}>
+                <View style={[styles.pill, currentGroup.days_remaining <= 3 && { backgroundColor: "rgba(248,113,113,0.15)", borderColor: "rgba(248,113,113,0.3)", borderWidth: 1 }, currentGroup.days_remaining > 3 && currentGroup.days_remaining <= 7 && { backgroundColor: "rgba(245,158,11,0.15)", borderColor: "rgba(245,158,11,0.3)", borderWidth: 1 }]}>
                   <View style={styles.pillContent}>
                     <Ionicons
-                      name="calendar-outline"
+                      name={currentGroup.days_remaining <= 3 ? "alert-circle" : "calendar-outline"}
                       size={14}
-                      color={C.accent2}
+                      color={currentGroup.days_remaining <= 3 ? C.red : currentGroup.days_remaining <= 7 ? C.yellow : C.accent2}
                     />
-                    <Text style={[styles.pillText, { marginLeft: 4 }]}>
+                    <Text style={[styles.pillText, { marginLeft: 4 }, currentGroup.days_remaining <= 3 && { color: C.red, fontWeight: "900" }, currentGroup.days_remaining > 3 && currentGroup.days_remaining <= 7 && { color: C.yellow, fontWeight: "900" }]}>
                       {currentGroup.days_remaining}d
                     </Text>
                   </View>
@@ -914,7 +957,7 @@ export default function GroupScreen() {
                       gap: 6,
                     }}
                   >
-                    <Text style={styles.myProgressValue}>
+                    <Text style={styles.myProgressValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                       {formatCurrency(
                         myMember.current_amount,
                         settings.currency,
@@ -989,7 +1032,7 @@ export default function GroupScreen() {
             style={styles.tabBar}
             contentContainerStyle={styles.tabBarContent}
           >
-            {(["members", "ranking", "history", "calendar", "chat", "stats"] as TabType[]).map(
+            {(["members", "ranking", "history", "calendar", "chat", "expenses", "stats"] as TabType[]).map(
               (tab) => {
                 const labels: Record<TabType, { icon: string; text: string }> =
                   {
@@ -998,6 +1041,7 @@ export default function GroupScreen() {
                     history: { icon: "list", text: t("history", lang) },
                     calendar: { icon: "calendar", text: t("calendar", lang) },
                     chat: { icon: "chatbubbles", text: t("chat", lang) },
+                    expenses: { icon: "receipt", text: t("expenses", lang) },
                     stats: { icon: "stats-chart", text: t("stats", lang) },
                   };
                 const tabInfo = labels[tab];
@@ -1103,7 +1147,7 @@ export default function GroupScreen() {
                         ]}
                       />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.historyName}>
+                        <Text style={styles.historyName} numberOfLines={2}>
                           <Text style={{ fontWeight: "800" }}>
                             {c.user?.name ?? t("someone", lang)}
                           </Text>
@@ -1111,6 +1155,17 @@ export default function GroupScreen() {
                         </Text>
                         {c.note && (
                           <Text style={styles.historyNote}>"{c.note}"</Text>
+                        )}
+                        {c.proof_url && (
+                          <TouchableOpacity
+                            onPress={() => setViewingProofUrl(c.proof_url)}
+                            style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs, marginTop: Spacing.xs }}
+                          >
+                            <Image source={{ uri: c.proof_url }} style={{ width: 40, height: 40, borderRadius: Radius.sm }} />
+                            <Text style={{ color: C.accent2, fontSize: FontSize.xs, fontWeight: "600" }}>
+                              {t("viewProof", lang)}
+                            </Text>
+                          </TouchableOpacity>
                         )}
                         <Text style={styles.historyDate}>
                           {format(new Date(c.created_at), "d MMM · HH:mm", {
@@ -1172,6 +1227,15 @@ export default function GroupScreen() {
 
             {activeTab === "chat" && (
               <GroupChat groupId={id!} />
+            )}
+
+            {activeTab === "expenses" && currentGroup && (
+              <GroupExpenses
+                groupId={id!}
+                members={currentGroup.members}
+                currency={settings.currency}
+                lang={lang}
+              />
             )}
 
             {activeTab === "stats" && currentGroup && (
@@ -1246,7 +1310,7 @@ export default function GroupScreen() {
                 {getQuickAmounts(settings.currency).map((v) => (
                   <TouchableOpacity
                     key={v}
-                    onPress={() => setContribAmount(String(v))}
+                    onPress={() => { impactAsync("Light"); setContribAmount(String(v)); }}
                     style={styles.quickBtn}
                   >
                     <Text style={styles.quickBtnText}>
@@ -1299,9 +1363,9 @@ export default function GroupScreen() {
               )}
 
               <Button
-                title={t("confirmContribution", lang)}
+                title={uploadingProof ? t("uploadingProof", lang) : t("confirmContribution", lang)}
                 onPress={handleAddContribution}
-                isLoading={contribLoading}
+                isLoading={contribLoading || uploadingProof}
               />
             </View>
           </View>
@@ -1593,6 +1657,33 @@ export default function GroupScreen() {
         />
       )}
 
+      {/* Proof Image Viewer Modal */}
+      <Modal
+        visible={!!viewingProofUrl}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setViewingProofUrl(null)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", alignItems: "center" }}
+          onPress={() => setViewingProofUrl(null)}
+        >
+          {viewingProofUrl && (
+            <Image
+              source={{ uri: viewingProofUrl }}
+              style={{ width: "90%", height: "70%", borderRadius: Radius.lg }}
+              resizeMode="contain"
+            />
+          )}
+          <TouchableOpacity
+            onPress={() => setViewingProofUrl(null)}
+            style={{ position: "absolute", top: 60, right: 24 }}
+          >
+            <Ionicons name="close-circle" size={32} color="#fff" />
+          </TouchableOpacity>
+        </Pressable>
+      </Modal>
+
       {/* Generic Alert Modal */}
       <AlertModal
         visible={alertModal.visible}
@@ -1797,6 +1888,7 @@ const createStyles = (C: any) => StyleSheet.create({
     fontWeight: "900",
     color: C.text,
     textAlign: "center",
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   quickAmounts: { flexDirection: "row", gap: Spacing.sm },
   quickBtn: {
@@ -1822,6 +1914,7 @@ const createStyles = (C: any) => StyleSheet.create({
     paddingVertical: 12,
     fontSize: FontSize.base,
     color: C.text,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   streakBadgeContainer: {
     flexDirection: "row",

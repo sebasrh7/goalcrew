@@ -142,6 +142,8 @@ export function initAuthListener(): () => void {
             avatar_url: getAvatarFromMetadata(
               session.user.user_metadata as Record<string, unknown> | undefined,
             ),
+            lifetime_points: 0,
+            best_streak: 0,
             created_at: session.user.created_at,
           };
           useAuthStore.setState({
@@ -182,7 +184,7 @@ export function initAuthListener(): () => void {
         await loadSettings();
       } catch {
         const email = session.user.email ?? "";
-        const newUser: Omit<User, "created_at"> & { created_at?: string } = {
+        const newUser: Omit<User, "created_at" | "lifetime_points" | "best_streak"> & { created_at?: string } = {
           id: session.user.id,
           email,
           name:
@@ -203,6 +205,8 @@ export function initAuthListener(): () => void {
 
         const finalUser: User = createdProfile || {
           ...newUser,
+          lifetime_points: 0,
+          best_streak: 0,
           created_at: new Date().toISOString(),
         };
 

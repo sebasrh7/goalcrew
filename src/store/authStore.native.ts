@@ -75,7 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (profileError: unknown) {
         // Profile doesn't exist (deleted account re-signing in) — create it
         const email = session.user.email ?? "";
-        const newUser: Omit<User, "created_at"> & { created_at?: string } = {
+        const newUser: Omit<User, "created_at" | "lifetime_points" | "best_streak"> & { created_at?: string } = {
           id: session.user.id,
           email,
           name:
@@ -94,6 +94,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         const finalUser: User = createdProfile || {
           ...newUser,
+          lifetime_points: 0,
+          best_streak: 0,
           created_at: new Date().toISOString(),
         };
 
@@ -188,6 +190,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // ─── Initialize auth listener ─────────────────────────────────────────────────
 export function initAuthListener(): () => void {
   supabase.auth.getSession().then(async ({ data: { session } }) => {
+
     if (session?.user) {
       try {
         const profile = await fetchProfile(session.user.id);
@@ -230,6 +233,8 @@ export function initAuthListener(): () => void {
             email.split("@")[0] ||
             "User",
           avatar_url: session.user.user_metadata?.avatar_url || null,
+          lifetime_points: 0,
+          best_streak: 0,
           created_at: session.user.created_at,
         };
         useAuthStore.setState({
@@ -246,6 +251,9 @@ export function initAuthListener(): () => void {
     } else {
       useAuthStore.setState({ isLoading: false });
     }
+  }).catch((err) => {
+    console.warn("Failed to get initial session:", err);
+    useAuthStore.setState({ isLoading: false });
   });
 
   const {
@@ -270,7 +278,7 @@ export function initAuthListener(): () => void {
       } catch (error: unknown) {
         // Profile missing — create it (re-sign-in after account deletion)
         const email = session.user.email ?? "";
-        const newUser: Omit<User, "created_at"> & { created_at?: string } = {
+        const newUser: Omit<User, "created_at" | "lifetime_points" | "best_streak"> & { created_at?: string } = {
           id: session.user.id,
           email,
           name:
@@ -289,6 +297,8 @@ export function initAuthListener(): () => void {
 
         const finalUser: User = createdProfile || {
           ...newUser,
+          lifetime_points: 0,
+          best_streak: 0,
           created_at: new Date().toISOString(),
         };
 

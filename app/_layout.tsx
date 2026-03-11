@@ -6,6 +6,7 @@ import { Platform, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
+import { OfflineBanner } from "../src/components/OfflineBanner";
 import { changeLanguage } from "../src/lib/i18n";
 import {
   addNotificationListeners,
@@ -108,6 +109,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <StatusBar style={statusBarStyle} />
+          <OfflineBanner />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
             <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />

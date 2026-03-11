@@ -22,7 +22,7 @@ import { useColors } from "../lib/useColors";
 // ─── Config ──────────────────────────────────────────────────────────────────
 const APK_DOWNLOAD_URL =
   process.env.EXPO_PUBLIC_APK_URL ??
-  "https://expo.dev/accounts/sebasrh7/projects/goalcrew/builds/aae04129-e692-4162-93d6-b038b56f444a";
+  "https://expo.dev/artifacts/eas/tqMwAuKVVKGn1eY5uFBAih.apk";
 
 const LANGUAGES: { code: Language; label: string }[] = [
   { code: "es", label: "ES" },

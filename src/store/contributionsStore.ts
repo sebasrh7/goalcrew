@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { CURRENCIES } from "../lib/currency";
 import { notifyAchievement, notifyGoalCompleted } from "../lib/notifications";
+import { notifyGroup } from "../lib/pushNotify";
 import {
   addContribution as apiAdd,
   deleteContributionApi,
@@ -71,6 +72,17 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
 
       // Refresh group data
       await useGroupsStore.getState().fetchGroup(groupId);
+
+      // Push notification to group members
+      const groupInfo = useGroupsStore.getState().groups.find((g) => g.id === groupId);
+      const currency = useSettingsStore.getState().settings?.currency || "USD";
+      notifyGroup({
+        type: "contribution_added",
+        groupId,
+        groupName: groupInfo?.name || "",
+        groupEmoji: groupInfo?.emoji,
+        data: { amount, currency },
+      }).catch(() => {});
     } finally {
       set({ isLoading: false });
     }
@@ -111,6 +123,14 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
         ),
       }));
       await useGroupsStore.getState().fetchGroup(groupId);
+
+      const groupInfo = useGroupsStore.getState().groups.find((g) => g.id === groupId);
+      notifyGroup({
+        type: "contribution_deleted",
+        groupId,
+        groupName: groupInfo?.name || "",
+        groupEmoji: groupInfo?.emoji,
+      }).catch(() => {});
     } finally {
       set({ isLoading: false });
     }
@@ -128,6 +148,14 @@ export const useContributionsStore = create<ContributionsStoreState>((set, get) 
       const data = await fetchGroupContributions(groupId);
       set({ contributions: data });
       await useGroupsStore.getState().fetchGroup(groupId);
+
+      const groupInfo = useGroupsStore.getState().groups.find((g) => g.id === groupId);
+      notifyGroup({
+        type: "contribution_updated",
+        groupId,
+        groupName: groupInfo?.name || "",
+        groupEmoji: groupInfo?.emoji,
+      }).catch(() => {});
     } finally {
       set({ isLoading: false });
     }
@@ -217,12 +245,11 @@ async function checkAndUnlockAchievements(
     }
   }
 
-  // Fetch already-unlocked achievements to avoid re-triggering modal
+  // Fetch already-unlocked achievements globally (not per-group) to avoid duplicates
   const { data: existingAchievements } = await supabase
     .from("achievements")
     .select("achievement_type")
-    .eq("user_id", userId)
-    .eq("group_id", groupId);
+    .eq("user_id", userId);
 
   const alreadyUnlocked = new Set(
     existingAchievements?.map((a) => a.achievement_type) ?? [],

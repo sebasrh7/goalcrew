@@ -3,7 +3,7 @@ import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { FontSize, Radius, Spacing } from "../constants";
 import { formatCurrency } from "../lib/currency";
-import { t } from "../lib/i18n";
+import { getFrequencyPeriodLabel, t } from "../lib/i18n";
 import { useColors } from "../lib/useColors";
 import { useSettingsStore } from "../store/settingsStore";
 import { Contribution, GroupMember, GroupWithStats } from "../types";
@@ -84,7 +84,7 @@ export function GroupStats({ group }: GroupStatsProps) {
           <Text style={styles.statLabel}>{t("totalContributions", lang)}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>
+          <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
             {formatCurrency(stats.avgAmount, currency)}
           </Text>
           <Text style={styles.statLabel}>{t("avgContribution", lang)}</Text>
@@ -105,9 +105,9 @@ export function GroupStats({ group }: GroupStatsProps) {
           <Ionicons name="trending-up" size={14} color={C.green} />{" "}
           {t("savingVelocity", lang)}
         </Text>
-        <Text style={styles.velocityValue}>
-          {formatCurrency(stats.dailyVelocity * 7, currency)}{" "}
-          <Text style={styles.velocityUnit}>{t("perPeriod", lang)}</Text>
+        <Text style={styles.velocityValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+          {formatCurrency(stats.dailyVelocity * (group.frequency === "daily" ? 1 : group.frequency === "weekly" ? 7 : group.frequency === "biweekly" ? 14 : group.frequency === "monthly" ? 30 : (group.custom_frequency_days ?? 7)), currency)}{" "}
+          <Text style={styles.velocityUnit}>/{getFrequencyPeriodLabel(group.frequency, lang, group.custom_frequency_days)}</Text>
         </Text>
       </View>
 
@@ -159,7 +159,7 @@ export function GroupStats({ group }: GroupStatsProps) {
               <Text style={styles.memberName} numberOfLines={1}>
                 {m.name}
               </Text>
-              <Text style={styles.memberAmount}>
+              <Text style={styles.memberAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {formatCurrency(m.amount, currency)} ({m.count})
               </Text>
             </View>

@@ -109,8 +109,10 @@ export default function HomeScreen() {
     [groups, user?.id],
   );
 
+  const [showAllActivity, setShowAllActivity] = useState(false);
+
   // Get recent activity across all groups
-  const recentActivity = useMemo(
+  const allActivity = useMemo(
     () =>
       groups
         .flatMap((g) =>
@@ -120,9 +122,11 @@ export default function HomeScreen() {
           (a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         )
-        .slice(0, 5),
+        .slice(0, 20),
     [groups],
   );
+
+  const recentActivity = showAllActivity ? allActivity : allActivity.slice(0, 5);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -293,6 +297,16 @@ export default function HomeScreen() {
               {recentActivity.map((item, idx) => (
                 <ActivityItem key={item.id ?? idx} item={item} />
               ))}
+              {allActivity.length > 5 && (
+                <TouchableOpacity
+                  onPress={() => setShowAllActivity((prev) => !prev)}
+                  style={{ paddingTop: Spacing.sm, alignItems: "center" }}
+                >
+                  <Text style={{ color: C.accent2, fontSize: FontSize.xs, fontWeight: "700" }}>
+                    {showAllActivity ? t("showLess", settings.language) : t("seeAll", settings.language)}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         )}
@@ -400,7 +414,7 @@ const StatCard = React.memo(function StatCard({
   const styles = useMemo(() => createStyles(C), [C]);
   return (
     <View style={styles.statCard}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={[styles.statValue, { color }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );

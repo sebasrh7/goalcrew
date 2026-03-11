@@ -12,7 +12,7 @@ import {
 } from "date-fns";
 import { enUS, es, fr } from "date-fns/locale";
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { FontSize, Radius, Spacing } from "../constants";
 import { formatCurrency } from "../lib/currency";
 import { Language, t } from "../lib/i18n";
@@ -198,6 +198,17 @@ export function ContributionCalendar({
                     {` — ${formatCurrency(c.amount, currency)}`}
                   </Text>
                   {c.note && <Text style={styles.detailNote}>"{c.note}"</Text>}
+                  {c.proof_url && (
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(c.proof_url!)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs, marginTop: Spacing.xs }}
+                    >
+                      <Image source={{ uri: c.proof_url }} style={{ width: 36, height: 36, borderRadius: Radius.sm }} />
+                      <Text style={{ color: C.accent2, fontSize: FontSize.xs, fontWeight: "600" }}>
+                        {t("viewProof", lang)}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <Text style={styles.detailTime}>
                   {format(new Date(c.created_at), "HH:mm")}

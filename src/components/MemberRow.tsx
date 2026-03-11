@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { FontSize, Radius, Spacing } from "../constants";
+import { FontSize, getLevelConfig, getUserLevel, Radius, Spacing } from "../constants";
 import { useColors } from "../lib/useColors";
 import { formatCurrency } from "../lib/currency";
 import { t } from "../lib/i18n";
@@ -33,7 +33,7 @@ export const MemberRow = React.memo(function MemberRow({
 
   const progress =
     member.individual_goal > 0
-      ? (member.current_amount / member.individual_goal) * 100
+      ? Math.min((member.current_amount / member.individual_goal) * 100, 100)
       : 0;
 
   const getRankIcon = (rank: number) => {
@@ -70,6 +70,7 @@ export const MemberRow = React.memo(function MemberRow({
         <View style={styles.nameRow}>
           <Text
             style={[styles.name, isCurrentUser && { color: C.accent2 }]}
+            numberOfLines={1}
           >
             {isCurrentUser ? `${user.name} ${t("youSuffix", lang)}` : user.name}
           </Text>
@@ -111,16 +112,26 @@ export const MemberRow = React.memo(function MemberRow({
                 ? { color: C.yellow }
                 : { color: C.red },
           ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
         >
           {formatCurrency(member.current_amount, settings.currency)}
         </Text>
-        <Text style={styles.goal}>
+        <Text style={styles.goal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           / {formatCurrency(member.individual_goal, settings.currency)}
         </Text>
         {showRank && (
-          <Text style={styles.points}>
-            {member.total_points} {t("pts", lang)}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Ionicons
+              name={getLevelConfig(getUserLevel(member.total_points).level).icon as any}
+              size={12}
+              color={getLevelConfig(getUserLevel(member.total_points).level).color}
+            />
+            <Text style={styles.points}>
+              {member.total_points} {t("pts", lang)}
+            </Text>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -156,15 +167,14 @@ const createStyles = (C: any) => StyleSheet.create({
     fontSize: FontSize.base,
     fontWeight: "800",
     color: C.text,
+    flexShrink: 1,
   },
   subRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  statusPill: {
-    transform: [{ scale: 0.9 }],
-  },
+  statusPill: {},
   progressBar: {
     marginTop: 2,
   },

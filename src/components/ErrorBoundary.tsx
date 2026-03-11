@@ -25,8 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // In production you could send this to a crash reporting service
-    // For now we just swallow it so the app doesn't hard-crash
+    console.warn("ErrorBoundary caught:", error.message, info.componentStack);
   }
 
   handleRetry = () => {

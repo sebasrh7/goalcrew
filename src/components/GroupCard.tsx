@@ -51,10 +51,12 @@ export const GroupCard = React.memo(function GroupCard({ group, onPress }: Group
   const groupIcon =
     GROUP_ICONS.find((icon) => icon.name === group.emoji) || GROUP_ICONS[0];
 
+  const safeProgress = isFinite(group.progress_percent) ? group.progress_percent : 0;
+
   const progressColor =
-    group.progress_percent >= 70
+    safeProgress >= 70
       ? C.green
-      : group.progress_percent >= 40
+      : safeProgress >= 40
         ? C.accent
         : C.yellow;
 
@@ -94,23 +96,23 @@ export const GroupCard = React.memo(function GroupCard({ group, onPress }: Group
         </View>
 
         <Text style={[styles.percent, { color: progressColor }]}>
-          {group.progress_percent}%
+          {safeProgress}%
         </Text>
 
         <ProgressBar
-          progress={group.progress_percent}
+          progress={safeProgress}
           height={5}
           color={progressColor}
         />
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
+          <Text style={styles.footerText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {savedAmount} {t("of")} {goalAmount}
           </Text>
           <Text
             style={[
               styles.daysLeft,
-              group.days_remaining < 30 && { color: C.yellow },
+              (group.days_remaining ?? 0) < 30 && { color: C.yellow },
             ]}
           >
             {getDaysText(group.days_remaining)}

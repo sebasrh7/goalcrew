@@ -245,8 +245,13 @@ export async function uploadContributionProof(
   file: { uri: string; type: string; name: string },
 ): Promise<string> {
   const path = `${userId}/${Date.now()}-${file.name}`;
-  const response = await fetch(file.uri);
-  const blob = await response.blob();
+  let blob: Blob;
+  try {
+    const response = await fetch(file.uri);
+    blob = await response.blob();
+  } catch {
+    throw new Error("Failed to read file for upload");
+  }
 
   const { error } = await supabase.storage
     .from("contribution-proofs")
@@ -378,6 +383,117 @@ export async function deleteContributionApi(contributionId: string) {
   });
   if (error) throw error;
 }
+
+// ─── Expenses (Split) ─────────────────────────────────────────────────────
+
+export async function fetchGroupExpenses(groupId: string, limit = 50, offset = 0) {
+  const { data, error } = await supabase
+    .from("expenses")
+    .select(`*, user:users(*), splits:expense_splits(*, user:users(*))`)
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return data;
+}
+
+export async function addExpenseApi(
+  groupId: string,
+  paidBy: string,
+  amount: number,
+  description: string,
+  splitType: string,
+  splits: { user_id: string; amount: number }[],
+  receiptUrl?: string,
+) {
+  const { data, error } = await supabase.rpc("add_expense_with_splits", {
+    p_group_id: groupId,
+    p_paid_by: paidBy,
+    p_amount: amount,
+    p_description: description,
+    p_split_type: splitType,
+    p_receipt_url: receiptUrl ?? null,
+    p_splits: JSON.stringify(splits),
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteExpenseApi(expenseId: string) {
+  const { error } = await supabase
+    .from("expenses")
+    .delete()
+    .eq("id", expenseId);
+  if (error) throw error;
+}
+
+export async function fetchGroupSettlements(groupId: string) {
+  const { data, error } = await supabase
+    .from("expense_settlements")
+    .select(`*, payer:users!expense_settlements_paid_by_fkey(*), payee:users!expense_settlements_paid_to_fkey(*)`)
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function addSettlementApi(
+  groupId: string,
+  paidBy: string,
+  paidTo: string,
+  amount: number,
+) {
+  const { data, error } = await supabase
+    .from("expense_settlements")
+    .insert({ group_id: groupId, paid_by: paidBy, paid_to: paidTo, amount })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function uploadExpenseReceipt(
+  userId: string,
+  file: { uri: string; type: string; name: string },
+): Promise<string> {
+  const path = `${userId}/${Date.now()}-${file.name}`;
+  let blob: Blob;
+  try {
+    const response = await fetch(file.uri);
+    blob = await response.blob();
+  } catch {
+    throw new Error("Failed to read receipt file for upload");
+  }
+
+  const { error } = await supabase.storage
+    .from("expense-receipts")
+    .upload(path, blob, { contentType: file.type });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from("expense-receipts").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export function subscribeToExpenses(
+  groupId: string,
+  onChange: (payload: { new: Record<string, unknown> }) => void,
+) {
+  return supabase
+    .channel(`expenses:${groupId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "expenses", filter: `group_id=eq.${groupId}` },
+      onChange,
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "expense_settlements", filter: `group_id=eq.${groupId}` },
+      onChange,
+    )
+    .subscribe();
+}
+
+// ─── Contribution Management ─────────────────────────────────────────────────
 
 export async function updateContributionApi(
   contributionId: string,

@@ -9,11 +9,13 @@ create extension if not exists "uuid-ossp";
 
 -- ─── USERS TABLE ──────────────────────────────────────────────────────────────
 create table public.users (
-  id          uuid references auth.users(id) on delete cascade primary key,
-  email       text unique not null,
-  name        text not null,
-  avatar_url  text,
-  created_at  timestamptz default now() not null
+  id               uuid references auth.users(id) on delete cascade primary key,
+  email            text unique not null,
+  name             text not null,
+  avatar_url       text,
+  lifetime_points  integer default 0 not null,
+  best_streak      integer default 0 not null,
+  created_at       timestamptz default now() not null
 );
 
 -- Auto-create user profile on signup (works with Google OAuth)
@@ -236,6 +238,12 @@ begin
         else 'behind'::member_status
       end
     where user_id = p_user_id and group_id = p_group_id;
+
+    -- Persist lifetime stats on user profile
+    update users set
+      lifetime_points = lifetime_points + floor(p_amount * 0.25) + v_streak_bonus,
+      best_streak = greatest(best_streak, v_new_streak)
+    where id = p_user_id;
   else
     -- Period NOT yet completed — update amount, no streak change
     update group_members set
@@ -248,6 +256,11 @@ begin
         else 'behind'::member_status
       end
     where user_id = p_user_id and group_id = p_group_id;
+
+    -- Persist lifetime points on user profile
+    update users set
+      lifetime_points = lifetime_points + floor(p_amount * 0.25)
+    where id = p_user_id;
   end if;
 end;
 $$;

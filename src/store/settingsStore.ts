@@ -38,6 +38,10 @@ export interface UserSettings {
   push_notifications: boolean;
   contribution_reminders: boolean;
   achievement_notifications: boolean;
+  chat_notifications: boolean;
+  expense_notifications: boolean;
+  group_notifications: boolean;
+  contribution_notifications: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -61,6 +65,10 @@ const defaultSettings: UserSettings = {
   push_notifications: true,
   contribution_reminders: true,
   achievement_notifications: true,
+  chat_notifications: true,
+  expense_notifications: true,
+  group_notifications: true,
+  contribution_notifications: true,
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({

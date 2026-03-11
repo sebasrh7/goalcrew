@@ -15,6 +15,8 @@ export interface User {
   email: string;
   name: string;
   avatar_url: string | null;
+  lifetime_points: number;
+  best_streak: number;
   created_at: string;
 }
 
@@ -90,6 +92,54 @@ export type AchievementType =
   | "most_consistent"
   | "early_bird"
   | "big_saver";
+
+// ─── Expense Splitting ───────────────────────────────────────────────────────
+
+export type ExpenseSplitType = "equal_all" | "equal_selected" | "custom";
+
+export interface Expense {
+  id: string;
+  group_id: string;
+  paid_by: string;
+  amount: number;
+  description: string;
+  receipt_url: string | null;
+  split_type: ExpenseSplitType;
+  created_at: string;
+  user?: User;
+  splits?: ExpenseSplit[];
+}
+
+export interface ExpenseSplit {
+  id: string;
+  expense_id: string;
+  user_id: string;
+  amount: number;
+  user?: User;
+}
+
+export interface ExpenseSettlement {
+  id: string;
+  group_id: string;
+  paid_by: string;
+  paid_to: string;
+  amount: number;
+  created_at: string;
+  payer?: User;
+  payee?: User;
+}
+
+export interface MemberBalance {
+  user_id: string;
+  user: User;
+  net_balance: number; // positive = is owed, negative = owes
+}
+
+export interface SimplifiedDebt {
+  from_user: User;
+  to_user: User;
+  amount: number;
+}
 
 // ─── UI / Computed Types ─────────────────────────────────────────────────────
 

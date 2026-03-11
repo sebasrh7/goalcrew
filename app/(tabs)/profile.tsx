@@ -25,10 +25,11 @@ import {
   GROUP_ICONS,
   Radius,
   Spacing,
+  getLevelConfig,
   getUserLevel,
 } from "../../src/constants";
 import { formatCurrency } from "../../src/lib/currency";
-import { getAchievementText, t } from "../../src/lib/i18n";
+import { getAchievementText, getFrequencyPeriodLabelPlural, t } from "../../src/lib/i18n";
 import { fetchAllUserAchievements, supabase } from "../../src/lib/supabase";
 import { useColors } from "../../src/lib/useColors";
 import { useAuthStore } from "../../src/store/authStore";
@@ -99,21 +100,27 @@ export default function ProfileScreen() {
   );
 
   const totalPoints = useMemo(
-    () =>
-      groups.reduce((sum, g) => {
+    () => {
+      const fromGroups = groups.reduce((sum, g) => {
         const m = g.members?.find((m) => m.user_id === user?.id);
         return sum + (m?.total_points ?? 0);
-      }, 0),
-    [groups, user?.id],
+      }, 0);
+      // Use lifetime_points as floor so progress survives group deletion
+      return Math.max(fromGroups, user?.lifetime_points ?? 0);
+    },
+    [groups, user?.id, user?.lifetime_points],
   );
 
   const maxStreak = useMemo(
-    () =>
-      groups.reduce((max, g) => {
+    () => {
+      const fromGroups = groups.reduce((max, g) => {
         const m = g.members?.find((m) => m.user_id === user?.id);
         return Math.max(max, m?.streak_days ?? 0);
-      }, 0),
-    [groups, user?.id],
+      }, 0);
+      // Use best_streak as floor so progress survives group deletion
+      return Math.max(fromGroups, user?.best_streak ?? 0);
+    },
+    [groups, user?.id, user?.best_streak],
   );
 
   // Level system — computed from total points
@@ -404,16 +411,16 @@ export default function ProfileScreen() {
               <Text style={styles.userName}>{user.name}</Text>
               <Text style={styles.userEmail}>{user.email}</Text>
               <View style={styles.badges}>
-                <View style={styles.levelBadge}>
+                <View style={[styles.levelBadge, { borderColor: getLevelConfig(levelInfo.level).color + "4D", backgroundColor: getLevelConfig(levelInfo.level).color + "2A" }]}>
                   <View style={styles.levelBadgeContent}>
                     <Ionicons
-                      name="trophy"
+                      name={getLevelConfig(levelInfo.level).icon as any}
                       size={14}
-                      color={C.accent2}
+                      color={getLevelConfig(levelInfo.level).color}
                       style={{ marginRight: 4 }}
                     />
-                    <Text style={styles.levelBadgeText}>
-                      {t("level", lang)} {levelInfo.level}
+                    <Text style={[styles.levelBadgeText, { color: getLevelConfig(levelInfo.level).color }]}>
+                      {t(`levelTitle_${levelInfo.level}`, lang)}
                     </Text>
                   </View>
                 </View>
@@ -455,6 +462,60 @@ export default function ProfileScreen() {
             />
           </View>
 
+          {/* Level Progress */}
+          <View style={{ paddingHorizontal: Spacing.xl, marginTop: Spacing.xl }}>
+            <Card>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.md }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: getLevelConfig(levelInfo.level).color + "2A",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: Spacing.md,
+                }}>
+                  <Ionicons
+                    name={getLevelConfig(levelInfo.level).icon as any}
+                    size={18}
+                    color={getLevelConfig(levelInfo.level).color}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: FontSize.base, fontWeight: "900", color: C.text }}>
+                    {t("level", lang)} {levelInfo.level} · {t(`levelTitle_${levelInfo.level}`, lang)}
+                  </Text>
+                  <Text style={{ fontSize: FontSize.xs, color: C.text2, marginTop: 2 }}>
+                    {levelInfo.level < 10
+                      ? `${t("nextLevel", lang)}: ${t(`levelTitle_${levelInfo.level + 1}`, lang)}`
+                      : t("maxLevelReached", lang)}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: FontSize.sm, fontWeight: "800", color: getLevelConfig(levelInfo.level).color }}>
+                  {totalPoints} pts
+                </Text>
+              </View>
+              <View style={{
+                height: 8,
+                backgroundColor: C.surface3,
+                borderRadius: 4,
+                overflow: "hidden",
+              }}>
+                <View style={{
+                  height: "100%",
+                  width: `${Math.round(levelInfo.progress * 100)}%`,
+                  backgroundColor: getLevelConfig(levelInfo.level).color,
+                  borderRadius: 4,
+                }} />
+              </View>
+              <Text style={{ fontSize: FontSize.xs, color: C.text3, marginTop: 4, textAlign: "right" }}>
+                {levelInfo.level >= 10
+                  ? `MAX · ${totalPoints} XP`
+                  : `${levelInfo.currentXP} / ${levelInfo.nextLevelXP} XP`}
+              </Text>
+            </Card>
+          </View>
+
           {/* Streak */}
           <SectionHeader
             title={t("weeklyStreak", lang)}
@@ -465,7 +526,14 @@ export default function ProfileScreen() {
               <View style={styles.streakRow}>
                 <View style={styles.streakTextBlock}>
                   <Text style={styles.streakNumber}>
-                    {maxStreak} {t("periods", lang)}
+                    {maxStreak}{" "}
+                    {bestStreakInfo
+                      ? getFrequencyPeriodLabelPlural(
+                          bestStreakInfo.frequency,
+                          lang,
+                          bestStreakInfo.custom_frequency_days,
+                        )
+                      : t("weeks", lang)}
                   </Text>
                   <Text style={styles.streakSub}>
                     {maxStreak >= 7
@@ -488,30 +556,36 @@ export default function ProfileScreen() {
                   ))}
                 </View>
               </View>
-              <View style={styles.streakDots}>
-                {streakDots.map((d, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.streakDot,
-                      d.done
-                        ? styles.streakDotDone
-                        : d.isCurrent
-                          ? styles.streakDotToday
-                          : styles.streakDotEmpty,
-                    ]}
-                  >
-                    <Text
+              {groups.length === 0 ? (
+                <Text style={{ fontSize: FontSize.xs, color: C.text3, textAlign: "center", paddingVertical: Spacing.sm }}>
+                  {t("noStreakYet", lang)}
+                </Text>
+              ) : (
+                <View style={styles.streakDots}>
+                  {streakDots.map((d, i) => (
+                    <View
+                      key={i}
                       style={[
-                        styles.streakDotText,
-                        d.done ? { color: "#000" } : { color: C.text3 },
+                        styles.streakDot,
+                        d.done
+                          ? styles.streakDotDone
+                          : d.isCurrent
+                            ? styles.streakDotToday
+                            : styles.streakDotEmpty,
                       ]}
                     >
-                      {d.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+                      <Text
+                        style={[
+                          styles.streakDotText,
+                          d.done ? { color: "#000" } : { color: C.text3 },
+                        ]}
+                      >
+                        {d.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </Card>
           </View>
 
@@ -840,7 +914,7 @@ const createStyles = (C: any) => StyleSheet.create({
     backgroundColor: "rgba(108,99,255,0.08)",
   },
   medalIconContainer: { marginBottom: 6 },
-  medalLocked: { opacity: 0.3 },
+  medalLocked: { opacity: 0.45 },
   medalName: {
     fontSize: 10,
     color: C.text2,
@@ -848,7 +922,7 @@ const createStyles = (C: any) => StyleSheet.create({
     lineHeight: 14,
     minHeight: 28,
   },
-  medalLockedText: { opacity: 0.5 },
+  medalLockedText: { opacity: 0.6 },
   medalStateRow: {
     height: 16,
     alignItems: "center",

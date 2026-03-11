@@ -29,6 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertModal } from "../../src/components/AlertModal";
 import { Button, Card } from "../../src/components/UI";
+import { impactAsync } from "../../src/lib/haptics";
 import {
   FontSize,
   GROUP_ICONS,
@@ -41,7 +42,7 @@ import {
   formatCurrency,
   getPlaceholderAmount,
 } from "../../src/lib/currency";
-import { getFrequencyLabel, t } from "../../src/lib/i18n";
+import { getFrequencyLabel, getFrequencyPeriodLabelPlural, t } from "../../src/lib/i18n";
 import { useColors } from "../../src/lib/useColors";
 import { useGroupsStore } from "../../src/store/groupsStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
@@ -275,7 +276,7 @@ export default function CreateScreen() {
               {GROUP_ICONS.map((icon) => (
                 <TouchableOpacity
                   key={icon.name}
-                  onPress={() => setSelectedIcon(icon)}
+                  onPress={() => { impactAsync("Light"); setSelectedIcon(icon); }}
                   style={[
                     styles.emojiBtn,
                     icon.name === selectedIcon.name && styles.emojiBtnActive,
@@ -286,6 +287,9 @@ export default function CreateScreen() {
                     size={24}
                     color={icon.color}
                   />
+                  <Text style={[styles.emojiLabel, icon.name === selectedIcon.name && { color: C.text }]}>
+                    {t(icon.labelKey, lang)}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -341,7 +345,7 @@ export default function CreateScreen() {
               ).map((f) => (
                 <TouchableOpacity
                   key={f}
-                  onPress={() => setFrequency(f)}
+                  onPress={() => { impactAsync("Light"); setFrequency(f); }}
                   style={[
                     styles.freqChip,
                     frequency === f && styles.freqChipActive,
@@ -391,7 +395,7 @@ export default function CreateScreen() {
                 highlight
               />
               <CalcItem
-                label={t("periods", lang)}
+                label={getFrequencyPeriodLabelPlural(frequency, lang, parseInt(customDays))}
                 value={String(calc.periods)}
               />
               <CalcItem
@@ -673,16 +677,22 @@ const createStyles = (C: any) => StyleSheet.create({
   },
   emojiGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
   emojiBtn: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 58,
     backgroundColor: C.surface2,
     borderRadius: Radius.md,
     borderWidth: 2,
     borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
+    gap: 2,
   },
   emojiBtnActive: { borderColor: C.accent },
+  emojiLabel: {
+    fontSize: 8,
+    color: C.text3,
+    fontWeight: "600",
+  },
   tabBar: {
     flexDirection: "row",
     backgroundColor: C.surface2,

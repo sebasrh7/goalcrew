@@ -1,6 +1,7 @@
 import { differenceInDays, parseISO } from "date-fns";
 import { create } from "zustand";
 import { getMemberStatus } from "../constants";
+import { notifyGroup } from "../lib/pushNotify";
 import {
   archiveGroupApi,
   completeGroupApi,
@@ -95,6 +96,7 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
 
       set({ groups });
     } catch (error: unknown) {
+      console.warn("Failed to fetch groups:", error);
       // Keep existing groups on transient errors — only clear if we had none
       const current = get().groups;
       if (current.length === 0) {
@@ -148,6 +150,17 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     if (!user) throw new Error("Not authenticated");
     await joinGroupByCode(inviteCode, user.id, individualGoal);
     await get().fetchGroups();
+
+    // Find the group we just joined to get its name
+    const joined = get().groups.find((g) => g.invite_code === inviteCode);
+    if (joined) {
+      notifyGroup({
+        type: "member_joined",
+        groupId: joined.id,
+        groupName: joined.name,
+        groupEmoji: joined.emoji,
+      }).catch(() => {});
+    }
   },
 
   updateMemberGoal: async (groupId: string, newGoal: number) => {
@@ -169,6 +182,16 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
   },
 
   leaveGroup: async (groupId: string) => {
+    const group = get().groups.find((g) => g.id === groupId);
+    // Send notification before leaving (we're still a member)
+    if (group) {
+      notifyGroup({
+        type: "member_left",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
     await leaveGroupApi(groupId);
     set((state) => ({
       groups: state.groups.filter((g) => g.id !== groupId),
@@ -178,6 +201,16 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
   },
 
   deleteGroup: async (groupId: string) => {
+    const group = get().groups.find((g) => g.id === groupId);
+    // Notify before deleting (members still exist)
+    if (group) {
+      notifyGroup({
+        type: "group_deleted",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
     await deleteGroupApi(groupId);
     set((state) => ({
       groups: state.groups.filter((g) => g.id !== groupId),
@@ -206,16 +239,47 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     });
     await get().fetchGroup(groupId);
     await get().fetchGroups();
+
+    const group = get().groups.find((g) => g.id === groupId);
+    if (group) {
+      notifyGroup({
+        type: "group_updated",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
   },
 
   completeGroup: async (groupId: string) => {
+    const group = get().groups.find((g) => g.id === groupId);
     await completeGroupApi(groupId);
     await get().fetchGroup(groupId);
     await get().fetchGroups();
+
+    if (group) {
+      notifyGroup({
+        type: "group_completed",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
   },
 
   archiveGroup: async (groupId: string) => {
+    const group = get().groups.find((g) => g.id === groupId);
     await archiveGroupApi(groupId);
+
+    if (group) {
+      notifyGroup({
+        type: "group_archived",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
+
     set((state) => ({
       groups: state.groups.filter((g) => g.id !== groupId),
       currentGroup:
@@ -227,11 +291,31 @@ export const useGroupsStore = create<GroupsState>((set, get) => ({
     await reactivateGroupApi(groupId);
     await get().fetchGroup(groupId);
     await get().fetchGroups();
+
+    const group = get().groups.find((g) => g.id === groupId);
+    if (group) {
+      notifyGroup({
+        type: "group_reactivated",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
   },
 
   removeMember: async (groupId: string, userId: string) => {
     await removeMemberApi(groupId, userId);
     await get().fetchGroup(groupId);
+
+    const group = get().groups.find((g) => g.id === groupId);
+    if (group) {
+      notifyGroup({
+        type: "member_removed",
+        groupId,
+        groupName: group.name,
+        groupEmoji: group.emoji,
+      }).catch(() => {});
+    }
   },
 }));
 

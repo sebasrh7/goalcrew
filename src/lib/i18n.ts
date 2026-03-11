@@ -209,6 +209,19 @@ export const translations: Translations = {
     en: "Points",
     fr: "Points",
   },
+  levelTitle_1: { es: "Novato", en: "Rookie", fr: "Débutant" },
+  levelTitle_2: { es: "Iniciado", en: "Starter", fr: "Initié" },
+  levelTitle_3: { es: "Ahorrador", en: "Saver", fr: "Épargnant" },
+  levelTitle_4: { es: "Constante", en: "Steady", fr: "Constant" },
+  levelTitle_5: { es: "Disciplinado", en: "Disciplined", fr: "Discipliné" },
+  levelTitle_6: { es: "Experto", en: "Expert", fr: "Expert" },
+  levelTitle_7: { es: "Maestro", en: "Master", fr: "Maître" },
+  levelTitle_8: { es: "Élite", en: "Elite", fr: "Élite" },
+  levelTitle_9: { es: "Leyenda", en: "Legend", fr: "Légende" },
+  levelTitle_10: { es: "Imparable", en: "Unstoppable", fr: "Inarrêtable" },
+  nextLevel: { es: "Siguiente nivel", en: "Next level", fr: "Niveau suivant" },
+  maxLevelReached: { es: "¡Nivel máximo!", en: "Max level!", fr: "Niveau max !" },
+  noStreakYet: { es: "Únete a un grupo para empezar tu racha", en: "Join a group to start your streak", fr: "Rejoignez un groupe pour commencer" },
   medals: {
     es: "Medallas",
     en: "Medals",
@@ -218,11 +231,6 @@ export const translations: Translations = {
     es: "Racha de constancia",
     en: "Consistency streak",
     fr: "Série de constance",
-  },
-  days: {
-    es: "períodos",
-    en: "periods",
-    fr: "périodes",
   },
   epicStreak: {
     es: "¡Racha épica!",
@@ -316,15 +324,35 @@ export const translations: Translations = {
     en: "day",
     fr: "jour",
   },
+  days: {
+    es: "días",
+    en: "days",
+    fr: "jours",
+  },
   week: {
     es: "semana",
     en: "week",
     fr: "semaine",
   },
+  weeks: {
+    es: "semanas",
+    en: "weeks",
+    fr: "semaines",
+  },
   month: {
     es: "mes",
     en: "month",
     fr: "mois",
+  },
+  months: {
+    es: "meses",
+    en: "months",
+    fr: "mois",
+  },
+  biweeks: {
+    es: "quincenas",
+    en: "fortnights",
+    fr: "quinzaines",
   },
   xDays: {
     es: "{x} días",
@@ -635,6 +663,26 @@ export const translations: Translations = {
     en: "Achievement Notifications",
     fr: "Notifications de Réussites",
   },
+  chatNotifications: {
+    es: "Mensajes del Chat",
+    en: "Chat Messages",
+    fr: "Messages du Chat",
+  },
+  expenseNotifications: {
+    es: "Gastos y Pagos",
+    en: "Expenses & Payments",
+    fr: "Dépenses et Paiements",
+  },
+  groupNotifications: {
+    es: "Actividad del Grupo",
+    en: "Group Activity",
+    fr: "Activité du Groupe",
+  },
+  contributionNotifications: {
+    es: "Aportes de Miembros",
+    en: "Member Contributions",
+    fr: "Contributions des Membres",
+  },
   publicProfile: {
     es: "Perfil Público",
     en: "Public Profile",
@@ -700,9 +748,9 @@ export const translations: Translations = {
     fr: "3 d'affilée",
   },
   achievement_streak_3_desc: {
-    es: "3 períodos consecutivos ahorrando",
-    en: "3 consecutive periods saving",
-    fr: "3 périodes consécutives d'épargne",
+    es: "3 veces seguidas ahorrando",
+    en: "Saved 3 times in a row",
+    fr: "3 fois de suite à épargner",
   },
   achievement_streak_7_title: {
     es: "Semana de fuego",
@@ -710,9 +758,9 @@ export const translations: Translations = {
     fr: "Semaine en feu",
   },
   achievement_streak_7_desc: {
-    es: "7 períodos consecutivos ahorrando",
-    en: "7 consecutive periods saving",
-    fr: "7 périodes consécutives d'épargne",
+    es: "7 veces seguidas ahorrando",
+    en: "Saved 7 times in a row",
+    fr: "7 fois de suite à épargner",
   },
   achievement_streak_30_title: {
     es: "Mes imparable",
@@ -720,9 +768,9 @@ export const translations: Translations = {
     fr: "Mois inarrêtable",
   },
   achievement_streak_30_desc: {
-    es: "30 períodos consecutivos ahorrando",
-    en: "30 consecutive periods saving",
-    fr: "30 périodes consécutives d'épargne",
+    es: "30 veces seguidas ahorrando",
+    en: "Saved 30 times in a row",
+    fr: "30 fois de suite à épargner",
   },
   achievement_first_50_percent_title: {
     es: "Primero al 50%",
@@ -1159,9 +1207,9 @@ export const translations: Translations = {
     fr: "Impossible de créer l'objectif",
   },
   periods: {
-    es: "Periodos",
-    en: "Periods",
-    fr: "Périodes",
+    es: "Ciclos",
+    en: "Cycles",
+    fr: "Cycles",
   },
 
   // Notifications
@@ -1460,6 +1508,11 @@ export const translations: Translations = {
     en: "Loading group…",
     fr: "Chargement du groupe…",
   },
+  errorLoadingGroup: {
+    es: "No se pudo cargar el grupo. Revisa tu conexión.",
+    en: "Could not load group. Check your connection.",
+    fr: "Impossible de charger le groupe. Vérifiez votre connexion.",
+  },
   backToGoals: {
     es: "← Mis metas",
     en: "← My goals",
@@ -1491,9 +1544,9 @@ export const translations: Translations = {
     fr: "Pas de série",
   },
   periodsCompleted: {
-    es: "períodos cumplidos",
-    en: "periods completed",
-    fr: "périodes complétées",
+    es: "veces cumplidas",
+    en: "times completed",
+    fr: "fois complétées",
   },
   tripIcon: {
     es: "Icono del grupo",
@@ -1699,6 +1752,11 @@ export const translations: Translations = {
     en: "No contributions this day",
     fr: "Pas de contributions ce jour",
   },
+  yesterday: {
+    es: "Ayer",
+    en: "Yesterday",
+    fr: "Hier",
+  },
   calendarToday: {
     es: "Hoy",
     en: "Today",
@@ -1815,6 +1873,70 @@ export const translations: Translations = {
     en: "Remove proof",
     fr: "Retirer le justificatif",
   },
+  uploadingProof: {
+    es: "Subiendo comprobante…",
+    en: "Uploading proof…",
+    fr: "Téléchargement du justificatif…",
+  },
+
+  // ─── Icon Labels ────────────────────────────────────────────────────────────
+  iconVacation: { es: "Vacaciones", en: "Vacation", fr: "Vacances" },
+  iconWork: { es: "Trabajo", en: "Work", fr: "Travail" },
+  iconWinter: { es: "Invierno", en: "Winter", fr: "Hiver" },
+  iconTravel: { es: "Viaje", en: "Travel", fr: "Voyage" },
+  iconCar: { es: "Auto", en: "Car", fr: "Voiture" },
+  iconBoat: { es: "Barco", en: "Boat", fr: "Bateau" },
+  iconTrain: { es: "Tren", en: "Train", fr: "Train" },
+  iconPhoto: { es: "Foto", en: "Photo", fr: "Photo" },
+  iconFood: { es: "Comida", en: "Food", fr: "Repas" },
+  iconHome: { es: "Casa", en: "Home", fr: "Maison" },
+  iconHealth: { es: "Salud", en: "Health", fr: "Santé" },
+  iconGoal: { es: "Meta", en: "Goal", fr: "Objectif" },
+
+  seeAll: { es: "Ver todo", en: "See all", fr: "Voir tout" },
+  showLess: { es: "Ver menos", en: "Show less", fr: "Voir moins" },
+
+  // ─── Chat Search ───────────────────────────────────────────────────────────
+  searchMessages: {
+    es: "Buscar mensajes…",
+    en: "Search messages…",
+    fr: "Rechercher des messages…",
+  },
+
+  // ─── Expense Splitting ──────────────────────────────────────────────────────
+  expenses: { es: "Gastos", en: "Expenses", fr: "Dépenses" },
+  addExpense: { es: "Agregar gasto", en: "Add expense", fr: "Ajouter dépense" },
+  paidBy: { es: "Pagado por", en: "Paid by", fr: "Payé par" },
+  splitEqually: { es: "Dividir igual", en: "Split equally", fr: "Diviser également" },
+  splitSelected: { es: "Seleccionados", en: "Selected", fr: "Sélectionnés" },
+  splitCustom: { es: "Personalizado", en: "Custom", fr: "Personnalisé" },
+  splitMismatch: { es: "Los montos no cuadran", en: "Amounts don't add up", fr: "Les montants ne correspondent pas" },
+  youOwe: { es: "Tú debes", en: "You owe", fr: "Tu dois" },
+  youAreOwed: { es: "Te deben", en: "You are owed", fr: "On te doit" },
+  allSettled: { es: "¡Todo saldado!", en: "All settled!", fr: "Tout réglé !" },
+  settleUp: { es: "Saldar", en: "Settle", fr: "Régler" },
+  amountExceedsDebt: { es: "El monto supera la deuda", en: "Amount exceeds debt", fr: "Le montant dépasse la dette" },
+  noExpenses: { es: "Sin gastos aún", en: "No expenses yet", fr: "Pas encore de dépenses" },
+  noExpensesDesc: {
+    es: "Registra los gastos del grupo para saber quién debe a quién",
+    en: "Record group expenses to track who owes whom",
+    fr: "Enregistrez les dépenses du groupe pour savoir qui doit quoi",
+  },
+  expenseDescription: { es: "Descripción", en: "Description", fr: "Description" },
+  expenseDescPlaceholder: { es: "Ej: Cena, Uber, Hotel…", en: "E.g. Dinner, Uber, Hotel…", fr: "Ex: Dîner, Uber, Hôtel…" },
+  selectMembers: { es: "Seleccionar miembros", en: "Select members", fr: "Sélectionner" },
+  owes: { es: "debe a", en: "owes", fr: "doit à" },
+  confirmSettle: { es: "Confirmar pago", en: "Confirm payment", fr: "Confirmer paiement" },
+  settleAmount: { es: "Monto a pagar", en: "Amount to pay", fr: "Montant à payer" },
+  totalExpenses: { es: "Total gastos", en: "Total expenses", fr: "Total dépenses" },
+  deleteExpense: { es: "Eliminar gasto", en: "Delete expense", fr: "Supprimer dépense" },
+  deleteExpenseConfirm: {
+    es: "¿Seguro que deseas eliminar este gasto?",
+    en: "Are you sure you want to delete this expense?",
+    fr: "Voulez-vous vraiment supprimer cette dépense ?",
+  },
+  attachReceipt: { es: "Adjuntar recibo", en: "Attach receipt", fr: "Joindre reçu" },
+  receiptAttached: { es: "Recibo adjunto", en: "Receipt attached", fr: "Reçu joint" },
 
   // ─── Smart Reminders ──────────────────────────────────────────────────────
   reminderStreakAtRisk: {
@@ -1823,9 +1945,9 @@ export const translations: Translations = {
     fr: "Votre série se termine demain si vous ne contribuez pas !",
   },
   reminderAmountLeft: {
-    es: "Te faltan {amount} para completar este periodo",
-    en: "You need {amount} more to complete this period",
-    fr: "Il vous manque {amount} pour compléter cette période",
+    es: "Te faltan {amount} para completar esta vez",
+    en: "You need {amount} more to complete this cycle",
+    fr: "Il vous manque {amount} pour compléter ce cycle",
   },
   reminderDeadlineClose: {
     es: "¡Quedan {days} días para el deadline de {group}!",
@@ -1855,9 +1977,9 @@ export const translations: Translations = {
     fr: "Vitesse d'épargne",
   },
   perPeriod: {
-    es: "por periodo",
-    en: "per period",
-    fr: "par période",
+    es: "por semana",
+    en: "per week",
+    fr: "par semaine",
   },
   avgContribution: {
     es: "Aporte promedio",
@@ -1933,11 +2055,11 @@ export const translations: Translations = {
     fr: "Automatique",
   },
 
-  // ─── Streaks (period-based naming) ──────────────────────────────────────
+  // ─── Streaks ────────────────────────────────────────────────────────────
   streakPeriods: {
-    es: "periodos consecutivos",
-    en: "consecutive periods",
-    fr: "périodes consécutives",
+    es: "veces seguidas",
+    en: "times in a row",
+    fr: "fois de suite",
   },
 
   // ─── Offline ─────────────────────────────────────────────────────────────
@@ -2005,6 +2127,30 @@ export function getFrequencyPeriodLabel(
         : t("week", lang);
     default:
       return t("week", lang);
+  }
+}
+
+/** Plural form: "semanas", "días", "meses", etc. */
+export function getFrequencyPeriodLabelPlural(
+  freq: string,
+  lang: Language = "es",
+  customDays?: number | null,
+): string {
+  switch (freq) {
+    case "daily":
+      return t("days", lang);
+    case "weekly":
+      return t("weeks", lang);
+    case "biweekly":
+      return t("biweeks", lang);
+    case "monthly":
+      return t("months", lang);
+    case "custom":
+      return customDays
+        ? t("xDays", lang).replace("{x}", String(customDays))
+        : t("weeks", lang);
+    default:
+      return t("weeks", lang);
   }
 }
 

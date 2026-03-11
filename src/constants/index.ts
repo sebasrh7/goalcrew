@@ -19,7 +19,7 @@ export const Colors = {
   accent: "#6c63ff",
   accent2: "#a78bfa",
   green: "#22d3a0",
-  yellow: "#fbbf24",
+  yellow: "#f59e0b",
   red: "#f87171",
   text: "#f0f2ff",
   text2: "#8892b0",
@@ -27,13 +27,13 @@ export const Colors = {
 
   // Status colors
   onTrack: "#22d3a0",
-  atRisk: "#fbbf24",
+  atRisk: "#f59e0b",
   behind: "#f87171",
 
   // Gradients (use with LinearGradient)
   gradientPrimary: ["#6c63ff", "#a78bfa"] as const,
   gradientSuccess: ["#22d3a0", "#059669"] as const,
-  gradientWarning: ["#fbbf24", "#d97706"] as const,
+  gradientWarning: ["#f59e0b", "#d97706"] as const,
   gradientDanger: ["#f87171", "#dc2626"] as const,
   gradientHero: ["#1a1555", "#0f1729", "#0b0f1a"] as const,
 } as const;
@@ -108,6 +108,29 @@ export const LEVEL_THRESHOLDS = [
   6000, // Level 10: 6000 pts
 ] as const;
 
+export interface LevelConfig {
+  icon: string; // Ionicons name
+  color: string;
+  gradient: readonly [string, string];
+}
+
+export const LEVEL_CONFIGS: LevelConfig[] = [
+  { icon: "leaf", color: "#9CA3AF", gradient: ["#9CA3AF", "#6B7280"] },       // 1
+  { icon: "leaf", color: "#22D3A0", gradient: ["#22D3A0", "#059669"] },       // 2
+  { icon: "shield-half", color: "#60A5FA", gradient: ["#60A5FA", "#2563EB"] },// 3
+  { icon: "shield", color: "#818CF8", gradient: ["#818CF8", "#6366F1"] },     // 4
+  { icon: "star-half", color: "#FBBF24", gradient: ["#FBBF24", "#D97706"] },  // 5
+  { icon: "star", color: "#F59E0B", gradient: ["#F59E0B", "#B45309"] },       // 6
+  { icon: "diamond", color: "#A78BFA", gradient: ["#A78BFA", "#7C3AED"] },    // 7
+  { icon: "diamond", color: "#C084FC", gradient: ["#C084FC", "#9333EA"] },    // 8
+  { icon: "flame", color: "#F87171", gradient: ["#F87171", "#DC2626"] },      // 9
+  { icon: "skull", color: "#FCD34D", gradient: ["#FCD34D", "#F59E0B"] },      // 10
+];
+
+export function getLevelConfig(level: number): LevelConfig {
+  return LEVEL_CONFIGS[Math.min(level, LEVEL_CONFIGS.length) - 1];
+}
+
 export function getUserLevel(totalPoints: number): {
   level: number;
   currentXP: number;
@@ -147,18 +170,18 @@ export function getMemberStatus(
 
 // ─── Group Icons ────────────────────────────────────────────────────────────
 export const GROUP_ICONS = [
-  { name: "sunny", color: "#00B4D8" },
-  { name: "briefcase", color: "#6C757D" },
-  { name: "snow", color: "#0077BE" },
-  { name: "airplane", color: "#6C63FF" },
-  { name: "car-sport", color: "#DC2626" },
-  { name: "boat", color: "#059669" },
-  { name: "train", color: "#7C2D12" },
-  { name: "camera", color: "#DB2777" },
-  { name: "restaurant", color: "#EA580C" },
-  { name: "home", color: "#16A34A" },
-  { name: "heart", color: "#E11D48" },
-  { name: "star", color: "#FBBF24" },
+  { name: "sunny", color: "#00B4D8", labelKey: "iconVacation" },
+  { name: "briefcase", color: "#6C757D", labelKey: "iconWork" },
+  { name: "snow", color: "#0077BE", labelKey: "iconWinter" },
+  { name: "airplane", color: "#6C63FF", labelKey: "iconTravel" },
+  { name: "car-sport", color: "#DC2626", labelKey: "iconCar" },
+  { name: "boat", color: "#059669", labelKey: "iconBoat" },
+  { name: "train", color: "#7C2D12", labelKey: "iconTrain" },
+  { name: "camera", color: "#DB2777", labelKey: "iconPhoto" },
+  { name: "restaurant", color: "#EA580C", labelKey: "iconFood" },
+  { name: "home", color: "#16A34A", labelKey: "iconHome" },
+  { name: "heart", color: "#E11D48", labelKey: "iconHealth" },
+  { name: "star", color: "#FBBF24", labelKey: "iconGoal" },
 ];
 
 // ─── Error helper ─────────────────────────────────────────────────────────────

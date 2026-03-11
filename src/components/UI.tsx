@@ -138,14 +138,14 @@ export function Button({
       <TouchableOpacity
         onPress={handlePress}
         disabled={disabled || isLoading}
-        style={[{ opacity: disabled ? 0.5 : 1 }, style]}
+        style={[{ opacity: disabled ? 0.4 : 1 }, style]}
         activeOpacity={0.85}
         accessibilityRole="button"
         accessibilityLabel={title}
         accessibilityState={{ disabled: disabled || isLoading }}
       >
         <LinearGradient
-          colors={C.gradientPrimary}
+          colors={disabled ? [C.surface3, C.surface3] : C.gradientPrimary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.btnBase, sizeStyle]}
@@ -424,7 +424,7 @@ export function StatusPill({
     at_risk: {
       icon: "warning",
       label: _t("statusAtRisk", l),
-      bg: "rgba(251,191,36,.15)",
+      bg: "rgba(245,158,11,.15)",
       color: C.yellow,
     },
     behind: {

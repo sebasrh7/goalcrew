@@ -163,3 +163,19 @@ END $$;
 -- This avoids breaking existing RPC functions while exposing the correct name.
 -- When you're ready to fully migrate, rename the column and update RPC functions.
 -- For now, the app will read streak_days but display it as "periods".
+
+
+-- 6. Lifetime stats on user profile (persist across group deletions)
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS lifetime_points integer DEFAULT 0 NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS best_streak integer DEFAULT 0 NOT NULL;
+
+-- Backfill from existing group_members data
+UPDATE users u SET
+  lifetime_points = COALESCE((
+    SELECT SUM(gm.total_points) FROM group_members gm WHERE gm.user_id = u.id
+  ), 0),
+  best_streak = COALESCE((
+    SELECT MAX(gm.streak_days) FROM group_members gm WHERE gm.user_id = u.id
+  ), 0)
+WHERE lifetime_points = 0;

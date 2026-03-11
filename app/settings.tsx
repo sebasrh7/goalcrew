@@ -177,6 +177,10 @@ export default function SettingsScreen() {
       "push_notifications",
       "contribution_reminders",
       "achievement_notifications",
+      "chat_notifications",
+      "expense_notifications",
+      "group_notifications",
+      "contribution_notifications",
     ];
     if (notifKeys.includes(key)) {
       try {
@@ -396,6 +400,78 @@ export default function SettingsScreen() {
               value={settings.achievement_notifications}
               onValueChange={(value) =>
                 handleToggle("achievement_notifications", value)
+              }
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
+              disabled={isSaving}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="cash-outline" size={20} color={C.text} />
+              <Text style={styles.settingLabel}>
+                {translate("contributionNotifications")}
+              </Text>
+            </View>
+            <Switch
+              value={settings.contribution_notifications}
+              onValueChange={(value) =>
+                handleToggle("contribution_notifications", value)
+              }
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
+              disabled={isSaving}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="chatbubble-outline" size={20} color={C.text} />
+              <Text style={styles.settingLabel}>
+                {translate("chatNotifications")}
+              </Text>
+            </View>
+            <Switch
+              value={settings.chat_notifications}
+              onValueChange={(value) =>
+                handleToggle("chat_notifications", value)
+              }
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
+              disabled={isSaving}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="receipt-outline" size={20} color={C.text} />
+              <Text style={styles.settingLabel}>
+                {translate("expenseNotifications")}
+              </Text>
+            </View>
+            <Switch
+              value={settings.expense_notifications}
+              onValueChange={(value) =>
+                handleToggle("expense_notifications", value)
+              }
+              trackColor={{ false: C.surface3, true: C.accent }}
+              thumbColor={C.bg}
+              disabled={isSaving}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="people-outline" size={20} color={C.text} />
+              <Text style={styles.settingLabel}>
+                {translate("groupNotifications")}
+              </Text>
+            </View>
+            <Switch
+              value={settings.group_notifications}
+              onValueChange={(value) =>
+                handleToggle("group_notifications", value)
               }
               trackColor={{ false: C.surface3, true: C.accent }}
               thumbColor={C.bg}
